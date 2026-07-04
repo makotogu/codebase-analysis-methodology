@@ -3,20 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>存量大型代码库分析方法论</title>
+    <title>存量大型代码库分析方法论 · 重构牵头人作战手册</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap">
     <style>
         :root {
             --stage-bg: #e8e0d4;
             --slide-bg: #f6f1e8;
             --bg-panel: #fffdf9;
+            --bg-code: #f0e8d9;
             --text-primary: #2a2318;
             --text-secondary: #5a5044;
             --text-muted: #8c8172;
             --accent: #a85a32;
             --accent-soft: #c4935a;
             --accent-dim: rgba(168, 90, 50, 0.1);
-            --accent-glow: transparent;
             --warm: #8f6b42;
             --warm-dim: rgba(143, 107, 66, 0.1);
             --danger: #b85a4a;
@@ -26,15 +26,15 @@
             --shadow: 0 1px 2px rgba(42, 35, 24, 0.04), 0 8px 24px rgba(42, 35, 24, 0.05);
             --font-display: 'Newsreader', Georgia, serif;
             --font-body: 'DM Sans', sans-serif;
+            --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
             --title-size: 84px;
             --h2-size: 44px;
             --h3-size: 26px;
-            --body-size: 31px;
-            --body-sm: 26px;
-            --caption-size: 22px;
+            --body-size: 29px;
+            --body-sm: 25px;
             --small-size: 20px;
             --slide-padding-x: 96px;
-            --slide-padding-y: 72px;
+            --slide-padding-y: 68px;
             --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
             --duration-normal: 0.55s;
         }
@@ -159,21 +159,20 @@
             padding: var(--slide-padding-y) var(--slide-padding-x);
             display: flex;
             flex-direction: column;
-            gap: 0;
         }
 
         .slide-head {
             flex-shrink: 0;
-            margin-bottom: 36px;
+            margin-bottom: 32px;
         }
 
         .slide-head .eyebrow {
-            margin-bottom: 14px;
+            margin-bottom: 12px;
         }
 
         .slide-head h2 {
             margin-bottom: 0;
-            max-width: 18ch;
+            max-width: 22ch;
             line-height: 1.12;
         }
 
@@ -186,8 +185,8 @@
         }
 
         .slide-footnote {
-            margin-top: 28px;
-            padding-top: 22px;
+            margin-top: 26px;
+            padding-top: 20px;
             border-top: 1px solid var(--border);
             font-size: var(--body-sm);
             line-height: 1.55;
@@ -206,7 +205,7 @@
             text-transform: uppercase;
             color: var(--accent);
             font-weight: 600;
-            margin-bottom: 14px;
+            margin-bottom: 12px;
         }
 
         h1, h2, h3 {
@@ -228,14 +227,14 @@
 
         h3 {
             font-size: var(--h3-size);
-            margin-bottom: 18px;
+            margin-bottom: 16px;
             color: var(--text-primary);
             font-weight: 600;
         }
 
         p, li {
             font-size: var(--body-size);
-            line-height: 1.62;
+            line-height: 1.6;
             color: var(--text-secondary);
         }
 
@@ -243,7 +242,7 @@
             font-size: 32px;
             color: var(--text-secondary);
             margin-top: 24px;
-            max-width: 26ch;
+            max-width: 28ch;
             line-height: 1.5;
         }
 
@@ -309,7 +308,7 @@
 
         .closing-title {
             font-size: 64px;
-            max-width: 14ch;
+            max-width: 15ch;
             line-height: 1.1;
         }
 
@@ -324,15 +323,18 @@
             width: 100%;
         }
 
-        .two-col.quad {
-            grid-template-rows: auto auto;
+        .three-col {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            width: 100%;
         }
 
         .panel {
             background: var(--bg-panel);
             border: 1px solid var(--border);
             border-radius: 12px;
-            padding: 36px 40px;
+            padding: 34px 38px;
             box-shadow: var(--shadow);
         }
 
@@ -341,13 +343,13 @@
             font-size: var(--body-size);
         }
 
-        .panel-action {
-            margin-top: 20px;
-            padding-top: 18px;
-            border-top: 1px solid var(--border);
+        .panel.compact {
+            padding: 28px 32px;
+        }
+
+        .panel.compact p,
+        .panel.compact li {
             font-size: var(--body-sm);
-            color: var(--accent);
-            font-weight: 500;
         }
 
         .panel.accent {
@@ -369,30 +371,92 @@
             box-shadow: none;
         }
 
+        .panel-action {
+            margin-top: 20px;
+            padding-top: 18px;
+            border-top: 1px solid var(--border);
+            font-size: var(--body-sm);
+            color: var(--accent);
+            font-weight: 500;
+        }
+
         ul.clean {
             list-style: none;
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 15px;
         }
 
         ul.clean li {
             position: relative;
             padding-left: 24px;
             font-size: var(--body-size);
-            line-height: 1.58;
+            line-height: 1.55;
+        }
+
+        ul.clean.sm li {
+            font-size: var(--body-sm);
+            gap: 12px;
         }
 
         ul.clean li::before {
             content: '';
             position: absolute;
             left: 0;
-            top: 0.72em;
+            top: 0.68em;
             width: 8px;
             height: 8px;
             border-radius: 2px;
             background: var(--accent-soft);
-            box-shadow: none;
+        }
+
+        ol.steps {
+            list-style: none;
+            counter-reset: step;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        ol.steps li {
+            counter-increment: step;
+            position: relative;
+            padding-left: 64px;
+            font-size: var(--body-size);
+            line-height: 1.55;
+        }
+
+        ol.steps li::before {
+            content: counter(step, decimal-leading-zero);
+            position: absolute;
+            left: 0;
+            top: 0.1em;
+            font-family: var(--font-display);
+            font-size: 30px;
+            font-weight: 500;
+            color: var(--accent);
+        }
+
+        ol.steps li strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .quote {
+            font-family: var(--font-display);
+            font-size: 42px;
+            font-weight: 500;
+            line-height: 1.35;
+            color: var(--text-primary);
+            max-width: 34ch;
+            padding-left: 32px;
+            border-left: 4px solid var(--accent);
+            margin-bottom: 40px;
+        }
+
+        .quote em {
+            font-style: normal;
+            color: var(--accent);
         }
 
         .flow-track {
@@ -402,6 +466,10 @@
             width: 100%;
             position: relative;
             padding-top: 8px;
+        }
+
+        .flow-track.cols-4 {
+            grid-template-columns: repeat(4, 1fr);
         }
 
         .flow-track::before {
@@ -427,7 +495,7 @@
             justify-content: center;
             width: 56px;
             height: 56px;
-            margin-bottom: 22px;
+            margin-bottom: 20px;
             border-radius: 50%;
             background: var(--bg-panel);
             border: 2px solid rgba(196, 147, 90, 0.45);
@@ -440,10 +508,10 @@
         .flow-step strong {
             display: block;
             font-family: var(--font-display);
-            font-size: 34px;
+            font-size: 32px;
             font-weight: 500;
             color: var(--text-primary);
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             line-height: 1.1;
         }
 
@@ -451,7 +519,7 @@
             display: block;
             font-size: var(--body-sm);
             color: var(--text-muted);
-            line-height: 1.5;
+            line-height: 1.48;
         }
 
         .tag {
@@ -462,7 +530,7 @@
             text-transform: uppercase;
             padding: 5px 10px;
             border-radius: 6px;
-            margin-bottom: 14px;
+            margin-bottom: 12px;
         }
 
         .tag.verified { background: rgba(143, 107, 66, 0.12); color: var(--warm); }
@@ -479,15 +547,22 @@
         table.evidence th,
         table.evidence td {
             text-align: left;
-            padding: 14px 0;
+            padding: 13px 0;
             border-bottom: 1px solid var(--border);
             vertical-align: top;
         }
 
         table.evidence td:last-child {
             color: var(--text-secondary);
-            line-height: 1.5;
+            line-height: 1.48;
             padding-left: 16px;
+        }
+
+        table.evidence td:first-child {
+            color: var(--text-primary);
+            font-weight: 500;
+            white-space: nowrap;
+            padding-right: 14px;
         }
 
         table.evidence th {
@@ -496,7 +571,7 @@
             font-size: 15px;
             text-transform: uppercase;
             letter-spacing: 0.08em;
-            padding-bottom: 12px;
+            padding-bottom: 11px;
         }
 
         .tool-grid {
@@ -510,24 +585,23 @@
             background: var(--bg-panel);
             border: 1px solid var(--border);
             border-radius: 10px;
-            padding: 24px 22px;
+            padding: 22px 20px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            min-height: 132px;
+            gap: 8px;
         }
 
         .tool-card .id {
             font-family: var(--font-display);
-            font-size: 28px;
+            font-size: 26px;
             font-weight: 500;
             color: var(--accent);
             line-height: 1;
         }
 
         .tool-card p {
-            font-size: var(--body-sm);
-            line-height: 1.48;
+            font-size: 22px;
+            line-height: 1.45;
             color: var(--text-secondary);
         }
 
@@ -572,6 +646,107 @@
             line-height: 1.45;
         }
 
+        .code-block {
+            font-family: var(--font-mono);
+            font-size: 21px;
+            line-height: 1.7;
+            background: var(--bg-code);
+            border: 1px solid var(--border-strong);
+            border-radius: 10px;
+            padding: 28px 32px;
+            color: var(--text-primary);
+            white-space: pre;
+            overflow: hidden;
+        }
+
+        .code-block .cm { color: var(--text-muted); }
+        .code-block .k { color: var(--accent); }
+
+        .phase-band {
+            display: grid;
+            grid-template-columns: 1.3fr 1fr 1fr;
+            gap: 16px;
+            width: 100%;
+            margin-bottom: 28px;
+        }
+
+        .phase {
+            padding: 24px 28px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--bg-panel);
+        }
+
+        .phase.focus {
+            border-color: rgba(168, 90, 50, 0.35);
+            background: #fffaf4;
+            box-shadow: 0 0 0 1px rgba(168, 90, 50, 0.1) inset;
+        }
+
+        .phase strong {
+            display: block;
+            font-family: var(--font-display);
+            font-size: 28px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+        }
+
+        .phase span {
+            font-size: 21px;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .phase.focus strong { color: var(--accent); }
+
+        .layer-block {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            width: 100%;
+        }
+
+        .layer-row {
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            gap: 18px;
+            align-items: stretch;
+        }
+
+        .layer-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-display);
+            font-size: 24px;
+            font-weight: 500;
+            color: var(--warm);
+            background: var(--warm-dim);
+            border: 1px solid rgba(143, 107, 66, 0.2);
+            border-radius: 10px;
+            text-align: center;
+            line-height: 1.3;
+            padding: 12px;
+        }
+
+        .layer-tools {
+            display: grid;
+            gap: 14px;
+        }
+
+        .layer-tools.c4 { grid-template-columns: repeat(4, 1fr); }
+        .layer-tools.c2 { grid-template-columns: repeat(2, 1fr); }
+        .layer-tools.c1 { grid-template-columns: 1fr; }
+
+        .layer-tools .tool-card {
+            padding: 16px 18px;
+            gap: 4px;
+        }
+
+        .layer-tools .tool-card .id { font-size: 22px; }
+        .layer-tools .tool-card p { font-size: 20px; line-height: 1.4; }
+
         .closing-links a {
             color: var(--accent);
             text-decoration: none;
@@ -613,76 +788,82 @@
     <div class="deck-viewport">
         <main class="deck-stage" id="deckStage">
 
-            <!-- Slide 1: Title -->
+            <!-- P1: 封面 -->
             <section class="slide title-slide grid-bg active">
                 <div class="slide-inner">
                     <p class="eyebrow reveal">Codebase Analysis Methodology</p>
                     <h1 class="reveal"><span>存量大型<br>代码库分析</span>方法论</h1>
-                    <p class="subtitle reveal">证据驱动的工程方法：用 AI/Agent 辅助分析缺少文档的巨型系统，并据此决策重构方向</p>
+                    <p class="subtitle reveal">给重构牵头人的作战手册——证据驱动，从 logs-only 到可执行的重构提案</p>
                     <div class="badge-row reveal">
-                        <span class="badge">建图 · 验证 · 评估 · 决策 · 执行</span>
+                        <span class="badge">建图 · 证据 · 决策 · 梳理 · 执行 · 工具箱</span>
                         <span class="badge">makotogu/codebase-analysis-methodology</span>
                     </div>
-                    <p class="meta reveal">← → 或空格翻页 · 演示文稿</p>
+                    <p class="meta reveal">← → 或空格翻页 · 27 页深度版</p>
                 </div>
             </section>
 
-            <!-- Slide 2: Core Question -->
+            <!-- P2: 你的处境 -->
             <section class="slide grid-bg">
                 <div class="slide-inner">
                     <div class="slide-head">
-                        <p class="eyebrow reveal">核心问题</p>
-                        <h2 class="reveal">面对巨大的、缺少文档的存量系统</h2>
+                        <p class="eyebrow reveal">开场</p>
+                        <h2 class="reveal">你的处境：接手一个没人说得清的系统</h2>
                     </div>
                     <div class="slide-body">
                         <div class="two-col">
-                            <div class="panel accent reveal">
-                                <h3>我们要回答什么？</h3>
-                                <p>如何用 AI/Agent 辅助把系统<strong style="color:var(--text-primary)">分析清楚</strong>，并据此<strong style="color:var(--text-primary)">决策重构方向</strong>？</p>
+                            <div class="panel compact reveal">
+                                <h3>文档缺失或过期</h3>
+                                <p>仅有的架构图是三年前画的，从画完那一刻就开始腐烂。没人敢保证它和当前代码一致。</p>
                             </div>
-                            <div class="panel reveal">
-                                <h3>这不是什么</h3>
-                                <ul class="clean">
-                                    <li>不是阅读技巧合集</li>
-                                    <li>不是让 LLM 自由发挥写架构总结</li>
-                                    <li>每个环节都有明确产出物、证据等级与人机分工</li>
-                                </ul>
+                            <div class="panel compact reveal">
+                                <h3>命名和业务对不上</h3>
+                                <p><code style="font-family:var(--font-mono);font-size:0.85em">SettleService</code> 实际干的是对账，真正的结算在 <code style="font-family:var(--font-mono);font-size:0.85em">ClearingJob</code>。命名漂移、历史包袱、口头约定俯拾皆是。</p>
+                            </div>
+                            <div class="panel compact reveal">
+                                <h3>只有分散日志</h3>
+                                <p>没有 tracing、没有统一指标。运行时真相散落在各服务的日志文件里，没有一个地方能看到完整调用链。</p>
+                            </div>
+                            <div class="panel compact reveal">
+                                <h3>测试不足，没人敢改</h3>
+                                <p>核心模块只有一两个老人敢动。直接重构等于裸奔，而"先补齐测试"又遥遥无期。</p>
                             </div>
                         </div>
+                        <p class="slide-footnote reveal">这不是个别现象，是存量系统的<strong>常态</strong>。方法论的前提就是接受这个常态——而不是先花一个季度"补基建"再开始分析。</p>
                     </div>
                 </div>
             </section>
 
-            <!-- Slide 3: Two Failure Modes -->
+            <!-- P3: 两大失败模式 -->
             <section class="slide grid-bg">
                 <div class="slide-inner">
                     <div class="slide-head">
-                        <p class="eyebrow reveal">设计出发点</p>
-                        <h2 class="reveal">对抗两种最常见的失败</h2>
+                        <p class="eyebrow reveal">开场</p>
+                        <h2 class="reveal">先认清两种注定失败的打法</h2>
                     </div>
                     <div class="slide-body">
                         <div class="two-col">
                             <div class="panel danger reveal">
                                 <h3>漫游式阅读</h3>
-                                <p>从随机文件深度优先陷进细节，一周后什么也没沉淀。80% 代码与当前问题无关——<strong style="color:var(--text-primary)">没有地图的阅读注定迷路</strong>。</p>
+                                <p>从随机文件点进去，深度优先陷进细节，一周后什么也没沉淀。大型代码库 80% 的代码和你当前关心的问题无关——<strong style="color:var(--text-primary)">没有地图的阅读注定迷路</strong>。</p>
                                 <p class="panel-action">对抗手段：建图</p>
                             </div>
                             <div class="panel danger reveal">
                                 <h3>AI 幻觉式总结</h3>
-                                <p>让 LLM 概括架构，得到看似合理但无文件路径支撑的文档。AI 会顺着命名编故事，而存量系统命名往往与业务对不上。</p>
+                                <p>让 LLM 概括架构，得到一份看似合理但没有任何文件路径支撑的文档。AI 会顺着命名编故事，而存量系统的命名恰恰经常和业务实际对不上。</p>
                                 <p class="panel-action">对抗手段：证据等级</p>
                             </div>
                         </div>
+                        <p class="slide-footnote reveal">给牵头人的警示：你的团队成员和你自己都会<strong>自然滑向</strong>这两种模式。方法论的作用不是提供聪明技巧，而是提供纪律。</p>
                     </div>
                 </div>
             </section>
 
-            <!-- Slide 4: Framework -->
+            <!-- P4: 证据驱动的循环 -->
             <section class="slide grid-bg">
                 <div class="slide-inner">
                     <div class="slide-head">
-                        <p class="eyebrow reveal">总框架</p>
-                        <h2 class="reveal">证据驱动的循环</h2>
+                        <p class="eyebrow reveal">总纲</p>
+                        <h2 class="reveal">总框架：证据驱动的循环</h2>
                     </div>
                     <div class="slide-body">
                         <div class="flow-track reveal">
@@ -692,201 +873,658 @@
                             <div class="flow-step"><span class="step-num">04</span><strong>决策</strong><span class="step-desc">重构方向<br>变更 × 业务演进</span></div>
                             <div class="flow-step"><span class="step-num">05</span><strong>执行</strong><span class="step-desc">绞杀者模式<br>小步安全替换</span></div>
                         </div>
-                        <p class="slide-footnote reveal"><strong>知识沉淀</strong>（notes / glossary / rules）贯穿全程——Agent 没有记忆，笔记是一等公民，是下一轮分析的上下文。</p>
+                        <p class="slide-footnote reveal"><strong>这是循环，不是瀑布</strong>——执行中发现的新事实回流地图。知识沉淀（notes / glossary / rules）贯穿全程：Agent 没有记忆，笔记是下一轮分析的上下文，是一等公民而非副产品。</p>
                     </div>
                 </div>
             </section>
 
-            <!-- Slide 5: Mapping -->
+            <!-- P5: 五条原则 -->
             <section class="slide grid-bg">
                 <div class="slide-inner">
                     <div class="slide-head">
-                        <p class="eyebrow reveal">01 建图方法论</p>
-                        <h2 class="reveal">静态骨架 + 运行时加权</h2>
+                        <p class="eyebrow reveal">总纲</p>
+                        <h2 class="reveal">五条不可妥协的原则</h2>
                     </div>
                     <div class="slide-body">
-                        <div class="two-col">
-                            <div class="panel accent reveal">
-                                <h3>三张静态图</h3>
-                                <ul class="clean">
-                                    <li><strong style="color:var(--text-primary)">模块边界图</strong> — 仓库/模块用途与上下游</li>
-                                    <li><strong style="color:var(--text-primary)">关键目录图</strong> — 每模块 ≤10 个重要目录</li>
-                                    <li><strong style="color:var(--text-primary)">端到端旅程图</strong> — 以流为锚点，不以文件为锚点</li>
-                                </ul>
+                        <div class="doc-list reveal">
+                            <div class="doc-item"><span class="doc-num">1</span><div><strong>证据驱动</strong><span>无 file:line 支撑的论断一律视为假设，禁止进入结论</span></div></div>
+                            <div class="doc-item"><span class="doc-num">2</span><div><strong>笔记是一等公民</strong><span>地图、术语表、追踪记录是方法论的核心资产</span></div></div>
+                            <div class="doc-item"><span class="doc-num">3</span><div><strong>以流为锚点</strong><span>围绕端到端可观察旅程组织阅读，不以文件为锚点</span></div></div>
+                            <div class="doc-item"><span class="doc-num">4</span><div><strong>先榨干已有信号</strong><span>存量日志与 git 历史优先于补埋点</span></div></div>
+                            <div class="doc-item" style="grid-column: span 2;"><span class="doc-num">5</span><div><strong>确定性优先</strong><span>采集和分析用 parser 与 git 挖掘；LLM 只做归因、摘要、错位探测这些模糊任务，且必须回填路径证据</span></div></div>
+                        </div>
+                        <p class="slide-footnote reveal">第 5 条的深层含义：<strong>采集+分析层不依赖 LLM 也能跑</strong>——LLM 坏了、贵了，不影响数据积累；只有综合层是 LLM 密集的。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P6: 建图哲学 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第一部分 · 建图</p>
+                        <h2 class="reveal">没有流量数据的地图是瞎的</h2>
+                    </div>
+                    <div class="slide-body">
+                        <p class="quote reveal">没有流量数据的代码地图就像没有车流量的街道图——<em>结构对了，但优先级是瞎的</em>。</p>
+                        <div class="three-col">
+                            <div class="panel compact reveal">
+                                <h3>模块边界图</h3>
+                                <p>每个仓库/模块的用途、语言、构建系统、上下游。多仓库先画仓库间边界。</p>
                             </div>
-                            <div class="panel reveal">
-                                <h3>运行时加权</h3>
-                                <ul class="clean">
-                                    <li>先榨干 access log、APM trace、error 聚合</li>
-                                    <li>慢查询与生产 profiler 找真实热点</li>
-                                    <li>后台任务：触发源清单完备可枚举</li>
-                                    <li>未验证路径标为候选，写明验证手段</li>
-                                </ul>
+                            <div class="panel compact reveal">
+                                <h3>关键目录图</h3>
+                                <p>每模块 ≤10 个重要目录。生成代码、vendored 依赖、构建产物提前过滤。</p>
+                            </div>
+                            <div class="panel accent compact reveal">
+                                <h3>端到端旅程图</h3>
+                                <p>一条可观察请求从入口到出口。<strong style="color:var(--text-primary)">以流为锚点</strong>：旅程的主路径有限，无关的 80% 自然被排除。</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <!-- Slide 6: Evidence -->
+            <!-- P7: 先榨干已有信号 -->
             <section class="slide grid-bg">
                 <div class="slide-inner">
                     <div class="slide-head">
-                        <p class="eyebrow reveal">02 证据体系</p>
-                        <h2 class="reveal">代码事实 × 业务语义 双轴</h2>
+                        <p class="eyebrow reveal">第一部分 · 建图</p>
+                        <h2 class="reveal">先榨干已有信号，再谈补埋点</h2>
                     </div>
                     <div class="slide-body">
                         <div class="two-col">
                             <div class="panel reveal">
-                                <h3>代码轴（AI 可推进）</h3>
+                                <h3>五类躺着的数据，不改一行业务代码</h3>
+                                <ul class="clean sm">
+                                    <li>网关 / access log — 哪些接口真的有量</li>
+                                    <li>APM trace（如果有）— 真实调用链</li>
+                                    <li>error 日志密集处 — 直接当<strong style="color:var(--text-primary)">缺陷密度</strong>的代理指标</li>
+                                    <li>DB 慢查询日志 — 数据访问的热点和痛点</li>
+                                    <li>异常堆栈聚合 — 高频故障路径</li>
+                                </ul>
+                            </div>
+                            <div class="panel warm reveal">
+                                <h3>被低估的手段：生产覆盖率</h3>
+                                <p>采样式 profiler（JFR / async-profiler / eBPF）在生产跑一两个月，直接得到"哪些代码真的被执行"。</p>
+                                <p style="margin-top:16px">副产品极有价值：<strong style="color:var(--text-primary)">连续几个月从未执行的代码就是死代码候选</strong>。删死代码是 ROI 最高的重构——先把地图上不存在的街道擦掉，剩下的图才好看。</p>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">这些数据足以回答：<strong>哪 20% 的代码承载了 95% 的流量</strong>。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P8: 后台任务 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第一部分 · 建图</p>
+                        <h2 class="reveal">后台任务：比用户链路更好处理</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel accent reveal">
+                                <h3>第一步 · 静态建触发源清单</h3>
+                                <p>定时任务一定注册在某处：crontab、<code style="font-family:var(--font-mono);font-size:0.85em">@Scheduled</code>、xxl-job、k8s CronJob；MQ 消费一定有 topic 订阅。全部可 grep、可解析。</p>
+                                <p style="margin-top:14px">产出：触发源 → 入口函数（file:line）→ 声称用途。这张表是<strong style="color:var(--text-primary)">完备的</strong>——注册机制就那么几种。</p>
+                            </div>
+                            <div class="panel reveal">
+                                <h3>第二步 · 分发点插桩一次</h3>
+                                <p>不给每个任务埋点。定时框架和 MQ 消费收口在一两个框架边界（调度 dispatch、consumer 基类）。</p>
+                                <p style="margin-top:14px">在这一个点加结构化日志，一次性拿到<strong style="color:var(--text-primary)">所有</strong>任务的执行频率、耗时、失败率。</p>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">这比给用户链路补埋点便宜<strong>一个数量级</strong>。有了"完备清单 + 执行权重"，后台地图往往比前台先完成。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P9: logs-only 四步走 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第一部分 · 建图</p>
+                        <h2 class="reveal">logs-only 状态的四步走</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="flow-track cols-4 reveal">
+                            <div class="flow-step"><span class="step-num">01</span><strong>日志普查</strong><span class="step-desc">纯静态扫描日志语句<br>业务 ID 当穷人版 trace ID</span></div>
+                            <div class="flow-step"><span class="step-num">02</span><strong>入口普查</strong><span class="step-desc">HTTP 路由表<br>+ 后台触发源清单</span></div>
+                            <div class="flow-step"><span class="step-num">03</span><strong>收口点插桩</strong><span class="step-desc">全系统只有 3–5 个收口点<br>filter / 拦截器 / 分发点</span></div>
+                            <div class="flow-step"><span class="step-num">04</span><strong>可达性传播</strong><span class="step-desc">入口权重沿静态调用图下传<br>合成模块热力图</span></div>
+                        </div>
+                        <p class="slide-footnote reveal"><strong>不要为了分析先建全链路 tracing</strong>——那是季度级工程，会把分析卡死；这套办法成本是天级的。传播误差大的地方（分支、动态分发）恰恰是人工重点验证清单——又回到证据等级体系。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P10: 双轴证据 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第二部分 · 证据体系</p>
+                        <h2 class="reveal">双轴证据：AI 能验证什么，不能验证什么</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel reveal">
+                                <h3>代码轴（AI 可自主推进）</h3>
                                 <table class="evidence">
                                     <tr><th>等级</th><th>含义</th></tr>
-                                    <tr><td><span class="tag verified">verified</span></td><td>file:line 或命令输出确认</td></tr>
-                                    <tr><td><span class="tag inferred">inferred</span></td><td>从命名/结构推断，尚无直接证据</td></tr>
-                                    <tr><td><span class="tag unverified">unverified</span></td><td>需构建/运行/追踪验证</td></tr>
+                                    <tr><td><span class="tag verified">verified</span></td><td>本地文件或命令确认，附 file:line</td></tr>
+                                    <tr><td><span class="tag inferred">inferred</span></td><td>从命名/结构/惯例推断，无直接证据</td></tr>
+                                    <tr><td><span class="tag unverified">unverified</span></td><td>需构建/运行/源码追踪验证</td></tr>
                                 </table>
                             </div>
                             <div class="panel warm reveal">
                                 <h3>业务轴（只能由人推进）</h3>
-                                <p><span class="tag inferred">business-confirmed</span> 具名确认，带日期与来源</p>
-                                <p style="margin-top:18px">代码 verified ≠ 业务可信。重构决策只允许建立在 <strong style="color:var(--text-primary)">verified + business-confirmed</strong> 之上。</p>
-                                <p style="margin-top:14px">术语对照表（glossary）是复利资产——每澄清一个术语，之后所有分析都受益。</p>
+                                <p><span class="tag inferred">business-confirmed</span> 必须具名、带日期："据张三，2026-07"——业务理解会过时，来源和时间让它可审计、可更新。</p>
+                                <p style="margin-top:16px">AI 可以确认"函数 X 写了表 A"，但"表 A 是不是业务上的结算流水"<strong style="color:var(--text-primary)">只能由人确认</strong>。两轴正交，分别推进。</p>
                             </div>
                         </div>
+                        <p class="slide-footnote reveal">牵头人的红线：<strong>重构决策只允许建立在 verified + business-confirmed 的论断之上</strong>，其余论断先补证据。</p>
                     </div>
                 </div>
             </section>
 
-            <!-- Slide 7: Refactoring Decision -->
+            <!-- P11: glossary -->
             <section class="slide grid-bg">
                 <div class="slide-inner">
                     <div class="slide-head">
-                        <p class="eyebrow reveal">03 重构决策</p>
-                        <h2 class="reveal">方向从变更历史算出来</h2>
+                        <p class="eyebrow reveal">第二部分 · 证据体系</p>
+                        <h2 class="reveal">glossary：复利的长期资产</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="reveal"><div class="code-block"><span class="cm"># glossary.yaml</span>
+- <span class="k">code_term:</span> SettleService
+  <span class="k">business_meaning:</span> 实际处理的是对账，不是结算；
+    真正的结算在 ClearingJob
+  <span class="k">owner:</span> 张三
+  <span class="k">confirmed_by:</span> 张三
+  <span class="k">confirmed_date:</span> 2026-07
+  <span class="k">evidence:</span> src/main/java/.../SettleService.java</div></div>
+                            <div class="panel reveal">
+                                <h3>三条使用纪律</h3>
+                                <ul class="clean sm">
+                                    <li>glossary 是<strong style="color:var(--text-primary)">人工段</strong>，机器重跑任何分析都不得覆盖</li>
+                                    <li>每次 Agent 会话开始时注入，让 AI 在已澄清的术语上不再犯错</li>
+                                    <li>访谈产出的每个澄清都回填 glossary，而不是散落在聊天记录里</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">它是<strong>复利的</strong>：每澄清一个术语，之后所有分析都受益。这是牵头人应该最早建立的资产之一。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P12: 错位探测器 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第二部分 · 证据体系</p>
+                        <h2 class="reveal">AI 角色反转：从解释者到错位探测器</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel danger reveal">
+                                <h3>四类要找的错位模式</h3>
+                                <ul class="clean sm">
+                                    <li>名为 query 却有写操作、名为 validate 却顺手改状态</li>
+                                    <li>注释说的分支条件和实际代码不一致</li>
+                                    <li>名为 X 却顺手干了 Y（职责溢出）</li>
+                                    <li>同一个业务词在不同模块指不同东西（术语冲突）</li>
+                                </ul>
+                            </div>
+                            <div class="panel accent reveal">
+                                <h3>闭环工作流</h3>
+                                <ol class="steps" style="gap:12px">
+                                    <li style="font-size:var(--body-sm)">只跑<strong>热点模块</strong>（控制成本），AI 标记疑似错位</li>
+                                    <li style="font-size:var(--body-sm)">产出<strong>访谈问题清单</strong>——不是结论</li>
+                                    <li style="font-size:var(--body-sm)">人工访谈领域专家，回答高价值问题</li>
+                                    <li style="font-size:var(--body-sm)">回填 glossary，注入后续所有会话</li>
+                                </ol>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">不要问 AI"这段代码的业务含义是什么"——它只会顺着命名编。人的介入从逐行陪读变成<strong>聚焦、高杠杆的仲裁</strong>：每个回答都让后续 AI 分析更准。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P13: 热点分析 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第三部分 · 重构决策</p>
+                        <h2 class="reveal">热点分析是第一优先级</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel reveal">
+                                <h3>变更频率 × 复杂度排序</h3>
+                                <ul class="clean sm">
+                                    <li>复杂但三年没人动的模块 → 重构它<strong style="color:var(--danger)">几乎是纯浪费</strong></li>
+                                    <li>每周都改、每次改都出 bug 的 500 行函数 → <strong style="color:var(--accent)">这才是真目标</strong></li>
+                                </ul>
+                                <p class="panel-action">叠加信号提精度：缺陷密度（error 聚合）+ 运行时热力图</p>
+                            </div>
+                            <div class="panel accent reveal">
+                                <h3>AI 的角色：归因分析</h3>
+                                <p>"为什么这里频繁变更？"</p>
+                                <ul class="clean sm" style="margin-top:14px">
+                                    <li>需求本身多变 → <strong style="color:var(--text-primary)">不该动</strong></li>
+                                    <li>抽象切错了，每个需求都要动它 → <strong style="color:var(--text-primary)">重构目标</strong></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">核心主张：<strong>重构方向不是从代码里读出来的，是从"变更历史 × 业务演进方向"里算出来的</strong>。"让代码更干净"不能作为立项理由。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P14: 变更轴线 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第三部分 · 重构决策</p>
+                        <h2 class="reveal">抽象方向由变更轴线决定，不由品味决定</h2>
+                    </div>
+                    <div class="slide-body">
+                        <p class="quote reveal" style="font-size:36px">哪些需求会一起来，哪些代码就应该被一起改到；<em>如果现状做不到，说明抽象切错了方向</em>。</p>
+                        <div class="three-col">
+                            <div class="panel compact reveal">
+                                <h3>找被切碎的概念</h3>
+                                <p>相距很远的文件总在同一 commit 被改 → 隐含概念被切碎，应收拢到一起。</p>
+                            </div>
+                            <div class="panel compact reveal">
+                                <h3>找多轴线巨型模块</h3>
+                                <p>一个文件在毫不相关的需求里都被改（典型如巨型 service）→ 承担多个变更轴线，应拆。</p>
+                            </div>
+                            <div class="panel danger compact reveal">
+                                <h3>不为假设的未来抽象</h3>
+                                <p>依据必须是<strong style="color:var(--text-primary)">已发生 ≥2–3 次</strong>的变更模式。存量系统最贵的债，往往是当年为不存在的未来做的抽象。</p>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">方法论立场：<strong>自底向上为主</strong>——AI 只出候选，人做裁决；目标架构可作远景参考，但每一步重构的立项依据必须是已发生的变更证据。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P15: 指标与门槛 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第三部分 · 重构决策</p>
+                        <h2 class="reveal">目标挂指标，提案有门槛</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel reveal">
+                                <h3>四类可用指标</h3>
+                                <table class="evidence">
+                                    <tr><th>类别</th><th>指标示例（数据来源）</th></tr>
+                                    <tr><td>交付</td><td>某类需求平均改动文件数、lead time（git + 需求系统）</td></tr>
+                                    <tr><td>质量</td><td>热点模块缺陷密度、回归率（error 聚合、bug 系统）</td></tr>
+                                    <tr><td>认知</td><td>新人上手时间；知识孤岛模块数（git 作者分布）</td></tr>
+                                    <tr><td>架构</td><td>依赖规则违反数（依赖图 + 适应度函数）</td></tr>
+                                </table>
+                            </div>
+                            <div class="panel warm reveal">
+                                <h3>提案最低证据门槛</h3>
+                                <ol class="steps" style="gap:14px">
+                                    <li style="font-size:var(--body-sm)">热点/耦合数据 —— <strong>verified</strong></li>
+                                    <li style="font-size:var(--body-sm)">业务含义确认 —— <strong>business-confirmed</strong></li>
+                                    <li style="font-size:var(--body-sm)">收益假设 —— <strong>明确写出赌的是哪个指标</strong></li>
+                                </ol>
+                                <p class="panel-action">三者缺一，提案退回补证据</p>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal"><strong>知识孤岛</strong>值得单独盯：git 作者分布可直接算 bus factor。热点 × 孤岛 = 双重风险——既频繁变更，又只有一个人能改。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P16: 梳理即分类 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第四部分 · 梳理阶段</p>
+                        <h2 class="reveal">梳理不是理解任务，而是分类任务</h2>
                     </div>
                     <div class="slide-body">
                         <div class="two-col">
                             <div class="panel accent reveal">
-                                <h3>热点分析第一优先级</h3>
-                                <p>变更频率 × 复杂度排序。复杂但三年没人动的模块——重构 ROI 极低；每周都改、每次出 bug 的 500 行函数才是真目标。</p>
+                                <h3>Shopify 的做法</h3>
+                                <p>把 <strong style="color:var(--text-primary)">6000 个 Ruby 类列进一张大表格，人工逐个标注归属组件</strong>（orders / shipping / billing…）。</p>
+                                <p style="margin-top:14px">不需要读懂每个类的实现，只需回答"它属于哪个业务概念"。难度从不可能变成可管理：有<strong style="color:var(--text-primary)">分母</strong>（进度可算）、可<strong style="color:var(--text-primary)">并行</strong>、有<strong style="color:var(--text-primary)">完成态</strong>。</p>
                             </div>
                             <div class="panel reveal">
-                                <h3>抽象方向由变更轴线决定</h3>
-                                <ul class="clean">
-                                    <li>同 commit 共改的文件 → 隐含概念被切碎</li>
-                                    <li>无关需求都改同一文件 → 承担多轴线，应拆分</li>
-                                    <li>不为假设的未来做抽象——依据已发生 ≥2–3 次的模式</li>
+                                <h3>AI 改变了成本结构</h3>
+                                <ul class="clean sm">
+                                    <li>LLM 批量提议标签，每条附<strong style="color:var(--text-primary)">置信度 + 证据</strong>（调用了谁、操作哪些表）</li>
+                                    <li>人只仲裁低置信度和有争议的部分</li>
+                                    <li>T1 co-change 做<strong style="color:var(--text-primary)">标签一致性校验</strong>：总一起变更的文件应同标签，违反处要么标错、要么是真实架构问题</li>
                                 </ul>
                             </div>
                         </div>
-                        <p class="slide-footnote reveal">执行：绞杀者模式 + 表征测试，小步替换，可观测性随重构增量生长</p>
+                        <p class="slide-footnote reveal">前置条件：先立<strong>标签体系</strong>——目标组件来自业务概念（订单/运费/计费）而非技术层次（MVC），由领域干系人共同给出，控制在几十个以内。</p>
                     </div>
                 </div>
             </section>
 
-            <!-- Slide 8: Principles -->
+            <!-- P17: 先止血 -->
             <section class="slide grid-bg">
                 <div class="slide-inner">
                     <div class="slide-head">
-                        <p class="eyebrow reveal">核心原则</p>
-                        <h2 class="reveal">五条不可妥协的约束</h2>
+                        <p class="eyebrow reveal">第四部分 · 梳理阶段</p>
+                        <h2 class="reveal">先止血，再梳理（Slack Project Duplo）</h2>
                     </div>
                     <div class="slide-body">
-                        <div class="doc-list reveal">
-                            <div class="doc-item"><span class="doc-num">1</span><div><strong>证据驱动</strong><span>无 file:line 支撑的论断一律视为假设</span></div></div>
-                            <div class="doc-item"><span class="doc-num">2</span><div><strong>笔记是一等公民</strong><span>地图、术语表、追踪记录是核心资产</span></div></div>
-                            <div class="doc-item"><span class="doc-num">3</span><div><strong>以流为锚点</strong><span>围绕端到端可观察旅程组织阅读</span></div></div>
-                            <div class="doc-item"><span class="doc-num">4</span><div><strong>先榨干已有信号</strong><span>存量日志与 git 历史优先于补埋点</span></div></div>
-                            <div class="doc-item" style="grid-column: span 2;"><span class="doc-num">5</span><div><strong>确定性优先</strong><span>采集分析用 parser 与 git 挖掘；LLM 只做归因、摘要、错位探测，且必须回填路径证据</span></div></div>
+                        <div class="phase-band reveal">
+                            <div class="phase focus"><strong>Stabilize</strong><span>六个月，只干两件事</span></div>
+                            <div class="phase"><strong>Modularize</strong><span>组件化、边界划分</span></div>
+                            <div class="phase"><strong>Modernize</strong><span>技术栈现代化</span></div>
                         </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Slide 9: Toolbox -->
-            <section class="slide grid-bg">
-                <div class="slide-inner">
-                    <div class="slide-head">
-                        <p class="eyebrow reveal">04 工具箱设计</p>
-                        <h2 class="reveal">T1–T8 可组合工具链</h2>
-                    </div>
-                    <div class="slide-body">
-                        <div class="tool-grid reveal">
-                            <div class="tool-card"><span class="id">T1</span><p>git-miner<br>变更热点与耦合</p></div>
-                            <div class="tool-card"><span class="id">T2</span><p>entry-census<br>入口普查</p></div>
-                            <div class="tool-card"><span class="id">T3</span><p>log-census<br>日志与 error 聚合</p></div>
-                            <div class="tool-card"><span class="id">T4</span><p>choke-metrics<br>收口点插桩</p></div>
-                            <div class="tool-card"><span class="id">T5</span><p>reachability<br>可达性传播</p></div>
-                            <div class="tool-card"><span class="id">T6</span><p>map-builder<br>代码地图生成</p></div>
-                            <div class="tool-card"><span class="id">T7</span><p>glossary<br>术语与错位探测</p></div>
-                            <div class="tool-card"><span class="id">T8</span><p>适应度函数<br>CI 架构守护</p></div>
+                        <div class="two-col">
+                            <div class="panel compact reveal">
+                                <h3>终结所有半途而废的迁移</h3>
+                                <p>Objective-C → Swift、直连 CoreData → 数据访问库……能收尾的收尾，不能收尾的至少<strong style="color:var(--text-primary)">冻结</strong>（禁止新代码使用旧模式）。</p>
+                            </div>
+                            <div class="panel compact reveal">
+                                <h3>N 种写法收敛成一种</h3>
+                                <p>"Instead of multiple ways to do the same thing, we had a single correct way." 同一件事三种写法，一切扫描、归类、分析的成本都要<strong style="color:var(--text-primary)">乘三</strong>。</p>
+                            </div>
                         </div>
-                        <p class="slide-footnote reveal">产物纯文本进 git · 机器段可重跑 · 人工段受保护</p>
+                        <p class="slide-footnote reveal"><strong>一致性是梳理的前提条件，不是梳理的结果</strong>。stalled migration 是隐形的分析税。另一层价值：Stabilization 先出成果，向组织证明项目能成，为后面更有野心的阶段挣到持续投入。</p>
                     </div>
                 </div>
             </section>
 
-            <!-- Slide 10: Stack Specific -->
+            <!-- P18: 物理归位 -->
             <section class="slide grid-bg">
                 <div class="slide-inner">
                     <div class="slide-head">
-                        <p class="eyebrow reveal">落地扩展</p>
-                        <h2 class="reveal">从通用方法到具体栈</h2>
+                        <p class="eyebrow reveal">第四部分 · 梳理阶段</p>
+                        <h2 class="reveal">先归类让耦合暴露，而不是先解耦（Shopify）</h2>
                     </div>
                     <div class="slide-body">
-                        <div class="two-col quad">
-                            <div class="panel reveal">
-                                <h3>05 Java / Spring</h3>
-                                <p>注解扫描、Actuator 对账、jdeps 模块边界、表映射与 ORM 追踪</p>
-                            </div>
-                            <div class="panel reveal">
-                                <h3>06 分布式与 Dubbo</h3>
-                                <p>跨服务调用图、注册中心对账、跨仓库耦合、OTel trace 方案选型</p>
-                            </div>
+                        <div class="two-col">
                             <div class="panel accent reveal">
-                                <h3>07 面向人与模型的表示</h3>
-                                <p>一份数据两个投影：人类可视化与模型结构化文本的分层设计</p>
+                                <h3>big-bang PR：纯文件移动</h3>
+                                <p>Shopify 做的第一件事不是解依赖，而是一次性把全部文件按业务概念重排目录——<strong style="color:var(--text-primary)">零逻辑改动、自动化脚本生成</strong>，完备测试套件兜底。</p>
+                                <p style="margin-top:14px">目的只有一个：归类之后，跨组件调用从"看不见"变成<strong style="color:var(--text-primary)">"扎眼"</strong>。耦合可见了，解耦才有靶子。</p>
+                            </div>
+                            <div class="panel danger reveal">
+                                <h3>代价（他们如实记录了）</h3>
+                                <p>git 历史被文件移动打断——GitHub 把 rename 当成删除 + 新建。</p>
+                                <p style="margin-top:14px">这正好印证 T1 git 挖掘的坑：必须用 <code style="font-family:var(--font-mono);font-size:0.85em">--follow</code> 或等价机制跨越这类大迁移，否则改名文件的历史断裂。</p>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">梳理难的一大原因是<strong>耦合不可见</strong>。物理归位是最便宜的可见化手段——先让代码的"住址"反映业务归属。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P19: 燃尽与棘轮 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第四部分 · 梳理阶段</p>
+                        <h2 class="reveal">燃尽图与棘轮：把梳理变成可问责的进展</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel reveal">
+                                <h3>度量：两家共同做法</h3>
+                                <ul class="clean sm">
+                                    <li><strong style="color:var(--text-primary)">Slack</strong>：自动脚本数"剩余废弃模式数量"，配 dashboard 和 deadline，落后就重新调配资源</li>
+                                    <li><strong style="color:var(--text-primary)">Shopify Wedge</strong>：每组件算隔离得分、列违规清单（跨组件非公开 API 调用、跨组件继承），看趋势</li>
+                                    <li>度量脚本是 grep 级工作量，但把"感觉上的进展"变成<strong style="color:var(--text-primary)">可问责的进展</strong></li>
+                                </ul>
                             </div>
                             <div class="panel warm reveal">
-                                <h3>08 梳理阶段实战</h3>
-                                <p>梳理即分类、先止血再归类、燃尽度量、棘轮治理（Shopify / Slack 案例）</p>
+                                <h3>治理：三个机制</h3>
+                                <ul class="clean sm">
+                                    <li><strong style="color:var(--text-primary)">专职团队</strong>——梳理不能是"大家有空时做的事"</li>
+                                    <li><strong style="color:var(--text-primary)">棘轮机制</strong>——存量违规豁免为 baseline，新增违规 CI 直接拦；违规数只许降不许升</li>
+                                    <li><strong style="color:var(--text-primary)">对上用数据拿授权</strong>——见下方三件套</li>
+                                </ul>
                             </div>
                         </div>
+                        <p class="slide-footnote reveal">Slack 给管理层的提案三件套：(1) 数据支撑的痛点 (2) 进度度量方案 (3) <strong>各阶段失效模式预判</strong>——最少见也最值钱：把"项目可能烂尾"从隐忧变成被管理的对象。</p>
                     </div>
                 </div>
             </section>
 
-            <!-- Slide 11: Reading Order -->
+            <!-- P20: 表征测试+绞杀者 -->
             <section class="slide grid-bg">
                 <div class="slide-inner">
                     <div class="slide-head">
-                        <p class="eyebrow reveal">文档索引</p>
-                        <h2 class="reveal">建议阅读顺序</h2>
+                        <p class="eyebrow reveal">第五部分 · 执行</p>
+                        <h2 class="reveal">表征测试 + 绞杀者模式</h2>
                     </div>
                     <div class="slide-body">
-                        <div class="doc-list reveal">
-                            <div class="doc-item"><span class="doc-num">01</span><div><strong>建图方法论</strong><span>静态骨架 + 运行时加权</span></div></div>
-                            <div class="doc-item"><span class="doc-num">02</span><div><strong>证据体系</strong><span>双轴证据等级与术语表</span></div></div>
-                            <div class="doc-item"><span class="doc-num">03</span><div><strong>重构决策</strong><span>热点分析与变更轴线</span></div></div>
-                            <div class="doc-item"><span class="doc-num">04</span><div><strong>工具箱设计</strong><span>T1–T8 数据流与落地顺序</span></div></div>
-                            <div class="doc-item"><span class="doc-num">05–06</span><div><strong>栈特定指南</strong><span>Java/Spring 与分布式 Dubbo</span></div></div>
-                            <div class="doc-item"><span class="doc-num">07–08</span><div><strong>表示与实战</strong><span>人机投影与梳理阶段治理</span></div></div>
+                        <div class="panel reveal">
+                            <ol class="steps">
+                                <li><strong>AI 批量生成表征测试</strong> —— 锁定现有行为：不管行为对不对，先如实记录。写"记录现状"的测试人类觉得枯燥，AI 做得又快又好，这是 AI 杠杆最高的场景之一</li>
+                                <li><strong>绞杀者模式小步替换</strong> —— 新实现在旁边生长，流量逐步切换，旧代码逐步枯萎，任何一步都可回退</li>
+                                <li><strong>可观测性随重构增量生长</strong> —— 替换某条链路时顺手把 tracing/指标埋进新代码，而不是重构前先做可观测性大工程</li>
+                                <li><strong>适应度函数守住成果</strong> —— 重构方向确定后，把目标写成可执行断言进 CI，防止回退</li>
+                            </ol>
                         </div>
+                        <p class="slide-footnote reveal">存量代码库大概率测试不足，<strong>直接改等于裸奔</strong>。执行永远走这个套路。</p>
                     </div>
                 </div>
             </section>
 
-            <!-- Slide 12: Closing -->
+            <!-- P21: 适应度函数 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第五部分 · 执行</p>
+                        <h2 class="reveal">适应度函数：把重构目标写成 CI 断言</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="three-col">
+                            <div class="panel compact reveal">
+                                <h3>依赖规则</h3>
+                                <p>"domain 层不得 import infra 层"——写成可执行断言，违反即 CI 失败。</p>
+                            </div>
+                            <div class="panel compact reveal">
+                                <h3>模块体积上限</h3>
+                                <p>巨型 service 拆完后设体积红线，防止悄悄长回去。</p>
+                            </div>
+                            <div class="panel compact reveal">
+                                <h3>热点分回归检查</h3>
+                                <p>重构目标挂的指标（如某模块热点分）纳入趋势监控。</p>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">时机上的重要修正：完整版最后做，但它的<strong>棘轮版本应该在梳理期就提前上线</strong>——存量违规先豁免为 baseline，新增违规直接拦，不等重构方向定了才上。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P22: 工具箱四层 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第六部分 · 工具箱</p>
+                        <h2 class="reveal">T1–T8：四层架构</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="layer-block reveal">
+                            <div class="layer-row">
+                                <div class="layer-label">采集层</div>
+                                <div class="layer-tools c4">
+                                    <div class="tool-card"><span class="id">T1</span><p>git-miner<br>热点/耦合/孤岛</p></div>
+                                    <div class="tool-card"><span class="id">T2</span><p>entry-census<br>入口普查 +2.5表映射 +2.6跨服务</p></div>
+                                    <div class="tool-card"><span class="id">T3</span><p>log-census<br>日志普查+error聚合</p></div>
+                                    <div class="tool-card"><span class="id">T4</span><p>choke-metrics<br>收口点插桩</p></div>
+                                </div>
+                            </div>
+                            <div class="layer-row">
+                                <div class="layer-label">分析层</div>
+                                <div class="layer-tools c1">
+                                    <div class="tool-card"><span class="id">T5</span><p>reachability — 入口权重沿静态调用图传播，合成模块热力图；第一版做文件级 import 图，粗但稳健</p></div>
+                                </div>
+                            </div>
+                            <div class="layer-row">
+                                <div class="layer-label">综合层</div>
+                                <div class="layer-tools c2">
+                                    <div class="tool-card"><span class="id">T6</span><p>map-builder — 代码地图生成，每模块一张卡片</p></div>
+                                    <div class="tool-card"><span class="id">T7</span><p>glossary + 错位探测器（只跑热点模块）</p></div>
+                                </div>
+                            </div>
+                            <div class="layer-row">
+                                <div class="layer-label">守护层</div>
+                                <div class="layer-tools c1">
+                                    <div class="tool-card"><span class="id">T8</span><p>架构适应度函数 — CI 守护，防止重构成果回退</p></div>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">核心设计决策：<strong>机器段与人工段分离</strong>——机器生成的内容随时重跑覆盖，人工确认的内容（business-confirmed、glossary）用标记保护。地图才能持续再生而不丢失人的投入。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P23: 落地顺序 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第六部分 · 工具箱</p>
+                        <h2 class="reveal">落地顺序：从第一天到第一个月</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="flow-track reveal">
+                            <div class="flow-step"><span class="step-num">01</span><strong>T1</strong><span class="step-desc">零依赖、当天出结果<br>立刻回答"哪里值得看"</span></div>
+                            <div class="flow-step"><span class="step-num">02</span><strong>查 actuator</strong><span class="step-desc">T4 大头可能白捡<br>决定是否要写切面</span></div>
+                            <div class="flow-step"><span class="step-num">03</span><strong>T2 + T2.5</strong><span class="step-desc">入口普查 + 表映射<br>都是静态解析</span></div>
+                            <div class="flow-step"><span class="step-num">04</span><strong>T5 → T6</strong><span class="step-desc">热力图 + 可再生地图<br>Agent 有了标准起始上下文</span></div>
+                            <div class="flow-step"><span class="step-num">05</span><strong>T3 / T7 / T8</strong><span class="step-desc">T3、T7 并行推进<br>T8 棘轮版提前上线</span></div>
+                        </div>
+                        <p class="slide-footnote reveal">T1 的三个必须处理的坑：<strong>时间衰减</strong>（一年前的变更权重应低于上月）、<strong>巨型 commit 过滤</strong>（一次动 200 文件的格式化 commit 污染耦合分析）、<strong>rename 追踪</strong>（否则历史断裂）。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P24: Java/Spring 红利 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第六部分 · 工具箱</p>
+                        <h2 class="reveal">Java / Spring 的四个红利</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel compact reveal">
+                                <h3>actuator 对账</h3>
+                                <p><code style="font-family:var(--font-mono);font-size:0.85em">/actuator/mappings</code> 给出运行时真实路由表，和静态清单 diff：静态有运行时没有 → 死入口；运行时有静态没有 → 普查漏洞。</p>
+                            </div>
+                            <div class="panel compact reveal">
+                                <h3>Micrometer 白捡指标</h3>
+                                <p>有 actuator 则 <code style="font-family:var(--font-mono);font-size:0.85em">http.server.requests</code> 开箱即有——HTTP 入口的频率、耗时、状态码不用写一行插桩。第一步永远是查 pom 里有没有 actuator。</p>
+                            </div>
+                            <div class="panel compact reveal">
+                                <h3>死代码检测几乎免费</h3>
+                                <p><code style="font-family:var(--font-mono);font-size:0.85em">-verbose:class</code> 或 JFR 记录类加载，生产跑一两个月，从未加载的类就是死代码候选——经常能划掉两位数百分比。</p>
+                            </div>
+                            <div class="panel accent compact reveal">
+                                <h3>T2.5 表映射：数据所有权</h3>
+                                <p>MyBatis XML / JPA 注解静态可解析出"每张表被谁读谁写"。<strong style="color:var(--text-primary)">拆模块的硬约束往往不是代码依赖而是数据所有权</strong>——一张表被五个模块写，代码拆得再干净也是假拆。</p>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">静态解析用 JavaParser / tree-sitter，<strong>不需要工程能编译通过</strong>——对老旧存量工程很重要。Spring 的坑：条件装配（@Profile / @ConditionalOn）会让静态清单里的入口在生产根本不激活，所以对账必须做。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P25: 分布式与 trace -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第六部分 · 工具箱</p>
+                        <h2 class="reveal">分布式 / Dubbo 与 trace 三层决策</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel reveal">
+                                <h3>Dubbo 反直觉的好消息</h3>
+                                <ul class="clean sm">
+                                    <li>强类型接口比 HTTP 字符串 URL <strong style="color:var(--text-primary)">好分析得多</strong>：接口 FQCN+version+group 是天然 join key，纯静态拼出跨服务调用图（T2.6）</li>
+                                    <li><strong style="color:var(--text-primary)">注册中心是白捡的运行时真相</strong>：静态 join 与 ZK/Nacos dump 对账，不写插桩就把证据从 inferred 升 verified</li>
+                                    <li>跨仓库 co-change：按工单 ID 或发布窗口近似——一个需求总要同时改 A、B 两个服务，就是边界切错的铁证</li>
+                                    <li>最恶劣的耦合是<strong style="color:var(--text-primary)">共享数据库表</strong>：调用图上看似解耦，实际是假拆</li>
+                                </ul>
+                            </div>
+                            <div class="panel warm reveal">
+                                <h3>trace 三层决策</h3>
+                                <ol class="steps" style="gap:13px">
+                                    <li style="font-size:var(--body-sm)"><strong>埋点层统一 OTel 标准</strong>（最重要）——OTel Java Agent 零代码自动埋点，避免被任何一家 APM 锁死</li>
+                                    <li style="font-size:var(--body-sm)"><strong>后端看运维能力</strong>，不看功能清单——SkyWalking / Tempo / Jaeger 都够用，别在选型上花太久</li>
+                                    <li style="font-size:var(--body-sm)"><strong>tail-based sampling</strong>——错误全采、慢请求全采、正常流量低比例</li>
+                                </ol>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">立场澄清：反对的是<strong>手工全链路埋点</strong>（季度级）；自动埋点是周级成本，应尽早上。业务键进 span attributes 的手动埋点，放在重构替换链路时顺手做。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P26: 人机分工 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">收尾</p>
+                        <h2 class="reveal">人机分工：各做各擅长的</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel accent reveal">
+                                <h3>AI / Agent</h3>
+                                <ul class="clean sm">
+                                    <li><strong style="color:var(--text-primary)">并行探索</strong>：同时摸清配置加载、权限模型、写入路径几条线</li>
+                                    <li>批量生成表征测试（枯燥但关键）</li>
+                                    <li>错位探测：产出访谈问题清单</li>
+                                    <li>归类标注提议：附置信度 + 证据</li>
+                                    <li>候选清单 + 收益假设生成</li>
+                                </ul>
+                            </div>
+                            <div class="panel warm reveal">
+                                <h3>人（牵头人与领域专家）</h3>
+                                <ul class="clean sm">
+                                    <li>裁决优先级、判断哪条线值得深入</li>
+                                    <li>business-confirmed 确认（具名+日期）</li>
+                                    <li>访谈领域专家，回填 glossary</li>
+                                    <li>仲裁低置信度标注与争议归属</li>
+                                    <li>对上拿授权：数据支撑的痛点 + 度量方案 + 失效模式预判</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">表示形式上遵循"一份数据、两个投影"：人看 treemap / mermaid，模型读 stable ID + 显式边的卡片，都从同一数据层派生。<strong>永远不要手绘架构图</strong>——手绘图从画完那一刻就开始腐烂。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P27: 结语 -->
             <section class="slide title-slide grid-bg">
                 <div class="slide-inner">
-                    <p class="eyebrow reveal">开始行动</p>
+                    <p class="eyebrow reveal">你的第一周</p>
                     <h2 class="reveal closing-title">先建图，再验证，用证据说话</h2>
-                    <p class="subtitle reveal">不要漫游阅读，不要让 AI 自由编造架构故事。从一条端到端旅程出发，把每一步写进带证据等级的笔记里。</p>
+                    <div class="panel reveal" style="margin-top:36px;max-width:1100px">
+                        <ol class="steps" style="gap:13px">
+                            <li style="font-size:var(--body-sm)">跑 <strong>T1 git 挖掘</strong>——当天拿到热点/耦合/孤岛清单</li>
+                            <li style="font-size:var(--body-sm)">查 <strong>actuator 与注册中心</strong>——这些是白捡的运行时真相</li>
+                            <li style="font-size:var(--body-sm)">建 <strong>notes/ 与 glossary.yaml</strong>——知识沉淀从第一天开始</li>
+                            <li style="font-size:var(--body-sm)">盘点 <strong>stalled migrations</strong>——能收尾的收尾，不能的冻结</li>
+                            <li style="font-size:var(--body-sm)">选<strong>一条端到端旅程</strong>做第一次运行时验证</li>
+                        </ol>
+                    </div>
                     <div class="badge-row reveal closing-links">
                         <span class="badge"><a href="https://github.com/makotogu/codebase-analysis-methodology">GitHub 仓库</a></span>
-                        <span class="badge"><a href="https://github.com/makotogu/codebase-analysis-methodology/blob/cursor/codebase-analysis-methodology-docs/README.md">完整文档 README</a></span>
+                        <span class="badge"><a href="https://github.com/makotogu/codebase-analysis-methodology/blob/cursor/codebase-analysis-methodology-docs/README.md">完整文档（8 篇）</a></span>
                     </div>
-                    <p class="meta reveal">存量大型代码库分析方法论 · 演示文稿</p>
+                    <p class="meta reveal">存量大型代码库分析方法论 · 深度版演示文稿</p>
                 </div>
             </section>
 
@@ -895,7 +1533,7 @@
 
     <nav class="deck-controls" aria-label="幻灯片导航">
         <button type="button" id="prevBtn" aria-label="上一页">‹</button>
-        <span id="pageIndicator">1 / 12</span>
+        <span id="pageIndicator">1 / 27</span>
         <button type="button" id="nextBtn" aria-label="下一页">›</button>
     </nav>
 
