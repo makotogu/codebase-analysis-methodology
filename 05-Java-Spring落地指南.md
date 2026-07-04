@@ -31,7 +31,7 @@ Java/Spring 栈对本方法论是好消息：静态类型加上 Spring 的"一�
 - 定时任务：一个环绕 `@Scheduled` 的 AOP 切面（记 entry_id、耗时、结果）；
 - MQ 消费：consumer 拦截器（Kafka 的 ConsumerInterceptor / RabbitMQ 的 advice chain）。
 
-**后手选项**：挂 SkyWalking 之类的 java agent（字节码插桩、零代码改动）一步到位拿到真 tracing。但这是运维决策，不作为分析的前置条件。
+**agent 选项**：挂 OTel Java Agent 或 SkyWalking agent（字节码插桩、零代码改动）一步到位拿到真 tracing，成本是周级，值得尽早上——选型、采样策略与增量落地路径见 [06-分布式与Dubbo.md](06-分布式与Dubbo.md) 第五节。
 
 ## T5 可达性：字节码分析比源码分析省事
 
