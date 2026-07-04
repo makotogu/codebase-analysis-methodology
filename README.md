@@ -62,3 +62,5 @@ flowchart LR
 方法论概览幻灯片（GitHub Pages）：https://makotogu.github.io/codebase-analysis-methodology/
 
 本地预览：在浏览器中打开 `docs/index.html`。使用 ← → 或空格翻页。
+
+**首次启用 Pages**（仓库管理员一次性操作）：进入仓库 **Settings → Pages**，将 **Build and deployment → Source** 设为 **Deploy from a branch**，Branch 选 `gh-pages` / `/ (root)`，保存后等待 1–2 分钟生效。
