@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>存量大型代码库分析方法论</title>
+    <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&f[]=clash-display@400,500,600,700&display=swap">
+    <style>
+        :root {
+            --stage-bg: #060a10;
+            --slide-bg: #0b1118;
+            --bg-panel: rgba(18, 28, 42, 0.92);
+            --text-primary: #f4f7fb;
+            --text-secondary: #9eb0c8;
+            --text-muted: #6b7f99;
+            --accent: #3ee8c5;
+            --accent-dim: rgba(62, 232, 197, 0.15);
+            --accent-glow: rgba(62, 232, 197, 0.35);
+            --warm: #f5b942;
+            --warm-dim: rgba(245, 185, 66, 0.12);
+            --danger: #ff6b6b;
+            --border: rgba(158, 176, 200, 0.18);
+            --font-display: 'Clash Display', sans-serif;
+            --font-body: 'Satoshi', sans-serif;
+            --title-size: 96px;
+            --h2-size: 58px;
+            --h3-size: 34px;
+            --body-size: 30px;
+            --small-size: 24px;
+            --slide-padding: 88px;
+            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+            --duration-normal: 0.65s;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            background: var(--stage-bg);
+        }
+
+        .deck-viewport {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            background: var(--stage-bg);
+        }
+
+        .deck-stage {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            transform-origin: 0 0;
+            background: var(--slide-bg);
+        }
+
+        .slide {
+            position: absolute;
+            inset: 0;
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            display: block;
+            visibility: hidden;
+            opacity: 0;
+            pointer-events: none;
+            background: var(--slide-bg);
+            color: var(--text-primary);
+            font-family: var(--font-body);
+        }
+
+        .slide.active,
+        .slide.visible {
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
+            z-index: 1;
+        }
+
+        img, video, canvas, svg {
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .deck-controls {
+            position: fixed;
+            left: 50%;
+            bottom: 22px;
+            transform: translateX(-50%);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            padding: 12px 22px;
+            border-radius: 999px;
+            background: rgba(8, 12, 18, 0.82);
+            border: 1px solid var(--border);
+            backdrop-filter: blur(12px);
+            color: var(--text-secondary);
+            font-family: var(--font-body);
+            font-size: 15px;
+        }
+
+        .deck-controls button {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 18px;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .deck-controls button:hover {
+            background: var(--accent-dim);
+            border-color: var(--accent);
+        }
+
+        .slide::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 900px 600px at 85% 10%, rgba(62, 232, 197, 0.08), transparent 60%),
+                radial-gradient(ellipse 700px 500px at 5% 95%, rgba(245, 185, 66, 0.06), transparent 55%),
+                linear-gradient(135deg, rgba(255,255,255,0.02) 0%, transparent 40%);
+            pointer-events: none;
+        }
+
+        .grid-bg::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(158, 176, 200, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(158, 176, 200, 0.05) 1px, transparent 1px);
+            background-size: 64px 64px;
+            mask-image: radial-gradient(ellipse 80% 70% at 50% 50%, black, transparent);
+            pointer-events: none;
+        }
+
+        .slide-inner {
+            position: relative;
+            z-index: 1;
+            height: 100%;
+            padding: var(--slide-padding);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .eyebrow {
+            font-size: 22px;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: var(--accent);
+            font-weight: 700;
+            margin-bottom: 24px;
+        }
+
+        h1, h2, h3 {
+            font-family: var(--font-display);
+            font-weight: 600;
+            line-height: 1.05;
+        }
+
+        h1 {
+            font-size: var(--title-size);
+            max-width: 14ch;
+        }
+
+        h2 {
+            font-size: var(--h2-size);
+            margin-bottom: 36px;
+        }
+
+        h3 {
+            font-size: var(--h3-size);
+            margin-bottom: 16px;
+            color: var(--text-primary);
+        }
+
+        p, li {
+            font-size: var(--body-size);
+            line-height: 1.55;
+            color: var(--text-secondary);
+        }
+
+        .subtitle {
+            font-size: 36px;
+            color: var(--text-secondary);
+            margin-top: 28px;
+            max-width: 22ch;
+            line-height: 1.45;
+        }
+
+        .meta {
+            margin-top: auto;
+            font-size: var(--small-size);
+            color: var(--text-muted);
+        }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(28px);
+            transition: opacity var(--duration-normal) var(--ease-out-expo),
+                        transform var(--duration-normal) var(--ease-out-expo);
+        }
+
+        .slide.visible .reveal {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .reveal:nth-child(1) { transition-delay: 0.05s; }
+        .reveal:nth-child(2) { transition-delay: 0.12s; }
+        .reveal:nth-child(3) { transition-delay: 0.19s; }
+        .reveal:nth-child(4) { transition-delay: 0.26s; }
+        .reveal:nth-child(5) { transition-delay: 0.33s; }
+        .reveal:nth-child(6) { transition-delay: 0.40s; }
+
+        .title-slide .slide-inner {
+            justify-content: center;
+        }
+
+        .title-slide h1 span {
+            display: block;
+            background: linear-gradient(120deg, var(--text-primary) 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .badge-row {
+            display: flex;
+            gap: 16px;
+            margin-top: 40px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            padding: 12px 22px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.03);
+            font-size: 22px;
+            color: var(--text-secondary);
+        }
+
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 36px;
+            flex: 1;
+            align-items: stretch;
+        }
+
+        .panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 36px 40px;
+            backdrop-filter: blur(8px);
+        }
+
+        .panel.accent {
+            border-color: rgba(62, 232, 197, 0.35);
+            box-shadow: 0 0 0 1px rgba(62, 232, 197, 0.08) inset;
+        }
+
+        .panel.warm {
+            border-color: rgba(245, 185, 66, 0.35);
+        }
+
+        .panel.danger {
+            border-color: rgba(255, 107, 107, 0.35);
+        }
+
+        ul.clean {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        ul.clean li {
+            position: relative;
+            padding-left: 28px;
+        }
+
+        ul.clean li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0.65em;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 12px var(--accent-glow);
+        }
+
+        .flow {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .flow-step {
+            flex: 1;
+            text-align: center;
+            padding: 28px 18px;
+            border-radius: 20px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+        }
+
+        .flow-step strong {
+            display: block;
+            font-family: var(--font-display);
+            font-size: 30px;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+        }
+
+        .flow-step span {
+            font-size: 22px;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .flow-arrow {
+            color: var(--accent);
+            font-size: 28px;
+            flex-shrink: 0;
+        }
+
+        .tag {
+            display: inline-block;
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 6px 12px;
+            border-radius: 8px;
+            margin-bottom: 14px;
+        }
+
+        .tag.verified { background: rgba(62, 232, 197, 0.15); color: var(--accent); }
+        .tag.inferred { background: var(--warm-dim); color: var(--warm); }
+        .tag.unverified { background: rgba(255, 107, 107, 0.12); color: var(--danger); }
+
+        table.evidence {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+            font-size: 26px;
+        }
+
+        table.evidence th,
+        table.evidence td {
+            text-align: left;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        table.evidence th {
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .tool-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            flex: 1;
+        }
+
+        .tool-card {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .tool-card .id {
+            font-family: var(--font-display);
+            font-size: 34px;
+            color: var(--accent);
+        }
+
+        .tool-card p {
+            font-size: 22px;
+            line-height: 1.45;
+        }
+
+        .doc-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+        }
+
+        .doc-item {
+            display: flex;
+            gap: 18px;
+            align-items: flex-start;
+            padding: 22px 24px;
+            border-radius: 16px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+        }
+
+        .doc-num {
+            font-family: var(--font-display);
+            font-size: 28px;
+            color: var(--accent);
+            min-width: 48px;
+        }
+
+        .doc-item strong {
+            display: block;
+            font-size: 26px;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+        }
+
+        .doc-item span {
+            font-size: 22px;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .closing-links a {
+            color: var(--accent);
+            text-decoration: none;
+            border-bottom: 1px solid rgba(62, 232, 197, 0.4);
+        }
+
+        .closing-links a:hover {
+            color: var(--text-primary);
+        }
+
+        @media print {
+            html, body { width: 1920px; height: auto; overflow: visible; background: #fff; }
+            .deck-viewport { position: static; overflow: visible; background: #fff; }
+            .deck-stage { position: static; width: auto; height: auto; transform: none !important; background: none; }
+            .slide {
+                position: relative;
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
+                width: 1920px;
+                height: 1080px;
+                break-after: page;
+                page-break-after: always;
+            }
+            .deck-controls { display: none !important; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.2s !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="deck-viewport">
+        <main class="deck-stage" id="deckStage">
+
+            <!-- Slide 1: Title -->
+            <section class="slide title-slide grid-bg active">
+                <div class="slide-inner">
+                    <p class="eyebrow reveal">Codebase Analysis Methodology</p>
+                    <h1 class="reveal"><span>存量大型<br>代码库分析</span>方法论</h1>
+                    <p class="subtitle reveal">证据驱动的工程方法：用 AI/Agent 辅助分析缺少文档的巨型系统，并据此决策重构方向</p>
+                    <div class="badge-row reveal">
+                        <span class="badge">建图 · 验证 · 评估 · 决策 · 执行</span>
+                        <span class="badge">makotogu/codebase-analysis-methodology</span>
+                    </div>
+                    <p class="meta reveal">← → 或空格翻页 · 演示文稿</p>
+                </div>
+            </section>
+
+            <!-- Slide 2: Core Question -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <p class="eyebrow reveal">核心问题</p>
+                    <h2 class="reveal">面对巨大的、缺少文档的存量系统</h2>
+                    <div class="two-col">
+                        <div class="panel accent reveal">
+                            <h3>我们要回答什么？</h3>
+                            <p>如何用 AI/Agent 辅助把系统<strong style="color:var(--text-primary)">分析清楚</strong>，并据此<strong style="color:var(--text-primary)">决策重构方向</strong>？</p>
+                        </div>
+                        <div class="panel reveal">
+                            <h3>这不是什么</h3>
+                            <ul class="clean">
+                                <li>不是阅读技巧合集</li>
+                                <li>不是让 LLM 自由发挥写架构总结</li>
+                                <li>每个环节都有明确产出物、证据等级与人机分工</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Slide 3: Two Failure Modes -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <p class="eyebrow reveal">设计出发点</p>
+                    <h2 class="reveal">对抗两种最常见的失败</h2>
+                    <div class="two-col">
+                        <div class="panel danger reveal">
+                            <h3>漫游式阅读</h3>
+                            <p>从随机文件深度优先陷进细节，一周后什么也没沉淀。80% 代码与当前问题无关——<strong style="color:var(--text-primary)">没有地图的阅读注定迷路</strong>。</p>
+                            <p style="margin-top:16px;color:var(--accent)">→ 对抗手段：<strong>建图</strong></p>
+                        </div>
+                        <div class="panel danger reveal">
+                            <h3>AI 幻觉式总结</h3>
+                            <p>让 LLM 概括架构，得到看似合理但无文件路径支撑的文档。AI 会顺着命名编故事，而存量系统命名往往与业务对不上。</p>
+                            <p style="margin-top:16px;color:var(--accent)">→ 对抗手段：<strong>证据等级</strong></p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Slide 4: Framework -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <p class="eyebrow reveal">总框架</p>
+                    <h2 class="reveal">证据驱动的循环</h2>
+                    <div class="flow reveal">
+                        <div class="flow-step"><strong>建图</strong><span>Source Map<br>静态骨架 + 运行时加权</span></div>
+                        <div class="flow-arrow">→</div>
+                        <div class="flow-step"><strong>验证</strong><span>Trace & Run<br>日志 / 断点 / 真实输出</span></div>
+                        <div class="flow-arrow">→</div>
+                        <div class="flow-step"><strong>评估</strong><span>热点与痛点<br>变更耦合 / 缺陷密度</span></div>
+                        <div class="flow-arrow">→</div>
+                        <div class="flow-step"><strong>决策</strong><span>重构方向<br>变更历史 × 业务演进</span></div>
+                        <div class="flow-arrow">→</div>
+                        <div class="flow-step"><strong>执行</strong><span>绞杀者模式<br>表征测试 / 可观测性</span></div>
+                    </div>
+                    <div class="panel warm reveal" style="margin-top:28px;">
+                        <p><strong style="color:var(--warm)">知识沉淀</strong>（notes / glossary / rules）贯穿全程——Agent 没有记忆，笔记是一等公民，是下一轮分析的上下文。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Slide 5: Mapping -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <p class="eyebrow reveal">01 建图方法论</p>
+                    <h2 class="reveal">静态骨架 + 运行时加权</h2>
+                    <div class="two-col">
+                        <div class="panel accent reveal">
+                            <h3>三张静态图</h3>
+                            <ul class="clean">
+                                <li><strong style="color:var(--text-primary)">模块边界图</strong> — 仓库/模块用途与上下游</li>
+                                <li><strong style="color:var(--text-primary)">关键目录图</strong> — 每模块 ≤10 个重要目录</li>
+                                <li><strong style="color:var(--text-primary)">端到端旅程图</strong> — 以流为锚点，不以文件为锚点</li>
+                            </ul>
+                        </div>
+                        <div class="panel reveal">
+                            <h3>运行时加权</h3>
+                            <ul class="clean">
+                                <li>先榨干 access log、APM trace、error 聚合</li>
+                                <li>慢查询与生产 profiler 找真实热点</li>
+                                <li>后台任务：触发源清单完备可枚举</li>
+                                <li>未验证路径标为候选，写明验证手段</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Slide 6: Evidence -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <p class="eyebrow reveal">02 证据体系</p>
+                    <h2 class="reveal">代码事实 × 业务语义 双轴</h2>
+                    <div class="two-col">
+                        <div class="panel reveal">
+                            <h3>代码轴（AI 可推进）</h3>
+                            <table class="evidence">
+                                <tr><th>等级</th><th>含义</th></tr>
+                                <tr><td><span class="tag verified">verified</span></td><td>file:line 或命令输出确认</td></tr>
+                                <tr><td><span class="tag inferred">inferred</span></td><td>从命名/结构推断，尚无直接证据</td></tr>
+                                <tr><td><span class="tag unverified">unverified</span></td><td>需构建/运行/追踪验证</td></tr>
+                            </table>
+                        </div>
+                        <div class="panel warm reveal">
+                            <h3>业务轴（只能由人推进）</h3>
+                            <p><span class="tag inferred">business-confirmed</span> 具名确认，带日期与来源</p>
+                            <p style="margin-top:20px">代码 verified ≠ 业务可信。重构决策只允许建立在 <strong style="color:var(--text-primary)">verified + business-confirmed</strong> 之上。</p>
+                            <p style="margin-top:16px">术语对照表（glossary）是复利资产——每澄清一个术语，之后所有分析都受益。</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Slide 7: Refactoring Decision -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <p class="eyebrow reveal">03 重构决策</p>
+                    <h2 class="reveal">方向从变更历史算出来</h2>
+                    <div class="two-col">
+                        <div class="panel accent reveal">
+                            <h3>热点分析第一优先级</h3>
+                            <p>变更频率 × 复杂度排序。复杂但三年没人动的模块——重构 ROI 极低；每周都改、每次出 bug 的 500 行函数才是真目标。</p>
+                        </div>
+                        <div class="panel reveal">
+                            <h3>抽象方向由变更轴线决定</h3>
+                            <ul class="clean">
+                                <li>同 commit 共改的文件 → 隐含概念被切碎</li>
+                                <li>无关需求都改同一文件 → 承担多轴线，应拆分</li>
+                                <li>不为假设的未来做抽象——依据已发生 ≥2–3 次的模式</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <p class="meta reveal" style="margin-top:24px">执行：绞杀者模式 + 表征测试，小步替换，可观测性随重构增量生长</p>
+                </div>
+            </section>
+
+            <!-- Slide 8: Principles -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <p class="eyebrow reveal">核心原则</p>
+                    <h2 class="reveal">五条不可妥协的约束</h2>
+                    <div class="doc-list reveal">
+                        <div class="doc-item"><span class="doc-num">1</span><div><strong>证据驱动</strong><span>无 file:line 支撑的论断一律视为假设</span></div></div>
+                        <div class="doc-item"><span class="doc-num">2</span><div><strong>笔记是一等公民</strong><span>地图、术语表、追踪记录是核心资产</span></div></div>
+                        <div class="doc-item"><span class="doc-num">3</span><div><strong>以流为锚点</strong><span>围绕端到端可观察旅程组织阅读</span></div></div>
+                        <div class="doc-item"><span class="doc-num">4</span><div><strong>先榨干已有信号</strong><span>存量日志与 git 历史优先于补埋点</span></div></div>
+                        <div class="doc-item" style="grid-column: span 2;"><span class="doc-num">5</span><div><strong>确定性优先</strong><span>采集分析用 parser 与 git 挖掘；LLM 只做归因、摘要、错位探测，且必须回填路径证据</span></div></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Slide 9: Toolbox -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <p class="eyebrow reveal">04 工具箱设计</p>
+                    <h2 class="reveal">T1–T8 可组合工具链</h2>
+                    <div class="tool-grid reveal">
+                        <div class="tool-card"><span class="id">T1</span><p>git-miner<br>变更热点与耦合</p></div>
+                        <div class="tool-card"><span class="id">T2</span><p>entry-census<br>入口普查</p></div>
+                        <div class="tool-card"><span class="id">T3</span><p>log-census<br>日志与 error 聚合</p></div>
+                        <div class="tool-card"><span class="id">T4</span><p>choke-metrics<br>收口点插桩</p></div>
+                        <div class="tool-card"><span class="id">T5</span><p>reachability<br>可达性传播</p></div>
+                        <div class="tool-card"><span class="id">T6</span><p>map-builder<br>代码地图生成</p></div>
+                        <div class="tool-card"><span class="id">T7</span><p>glossary<br>术语与错位探测</p></div>
+                        <div class="tool-card"><span class="id">T8</span><p>适应度函数<br>CI 架构守护</p></div>
+                    </div>
+                    <p class="meta reveal">产物纯文本进 git · 机器段可重跑 · 人工段受保护</p>
+                </div>
+            </section>
+
+            <!-- Slide 10: Stack Specific -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <p class="eyebrow reveal">落地扩展</p>
+                    <h2 class="reveal">从通用方法到具体栈</h2>
+                    <div class="two-col">
+                        <div class="panel reveal">
+                            <h3>05 Java / Spring</h3>
+                            <p>注解扫描、Actuator 对账、jdeps 模块边界、表映射与 ORM 追踪</p>
+                        </div>
+                        <div class="panel reveal">
+                            <h3>06 分布式与 Dubbo</h3>
+                            <p>跨服务调用图、注册中心对账、跨仓库耦合、OTel trace 方案选型</p>
+                        </div>
+                        <div class="panel accent reveal">
+                            <h3>07 面向人与模型的表示</h3>
+                            <p>一份数据两个投影：人类可视化与模型结构化文本的分层设计</p>
+                        </div>
+                        <div class="panel warm reveal">
+                            <h3>08 梳理阶段实战</h3>
+                            <p>梳理即分类、先止血再归类、燃尽度量、棘轮治理（Shopify / Slack 案例）</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Slide 11: Reading Order -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <p class="eyebrow reveal">文档索引</p>
+                    <h2 class="reveal">建议阅读顺序</h2>
+                    <div class="doc-list reveal">
+                        <div class="doc-item"><span class="doc-num">01</span><div><strong>建图方法论</strong><span>静态骨架 + 运行时加权</span></div></div>
+                        <div class="doc-item"><span class="doc-num">02</span><div><strong>证据体系</strong><span>双轴证据等级与术语表</span></div></div>
+                        <div class="doc-item"><span class="doc-num">03</span><div><strong>重构决策</strong><span>热点分析与变更轴线</span></div></div>
+                        <div class="doc-item"><span class="doc-num">04</span><div><strong>工具箱设计</strong><span>T1–T8 数据流与落地顺序</span></div></div>
+                        <div class="doc-item"><span class="doc-num">05–06</span><div><strong>栈特定指南</strong><span>Java/Spring 与分布式 Dubbo</span></div></div>
+                        <div class="doc-item"><span class="doc-num">07–08</span><div><strong>表示与实战</strong><span>人机投影与梳理阶段治理</span></div></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Slide 12: Closing -->
+            <section class="slide title-slide grid-bg">
+                <div class="slide-inner">
+                    <p class="eyebrow reveal">开始行动</p>
+                    <h2 class="reveal" style="font-size:72px;max-width:16ch">先建图，再验证，用证据说话</h2>
+                    <p class="subtitle reveal">不要漫游阅读，不要让 AI 自由编造架构故事。从一条端到端旅程出发，把每一步写进带证据等级的笔记里。</p>
+                    <div class="badge-row reveal closing-links">
+                        <span class="badge"><a href="https://github.com/makotogu/codebase-analysis-methodology">GitHub 仓库</a></span>
+                        <span class="badge"><a href="https://github.com/makotogu/codebase-analysis-methodology/blob/cursor/codebase-analysis-methodology-docs/README.md">完整文档 README</a></span>
+                    </div>
+                    <p class="meta reveal">存量大型代码库分析方法论 · 演示文稿</p>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <nav class="deck-controls" aria-label="幻灯片导航">
+        <button type="button" id="prevBtn" aria-label="上一页">‹</button>
+        <span id="pageIndicator">1 / 12</span>
+        <button type="button" id="nextBtn" aria-label="下一页">›</button>
+    </nav>
+
+    <script>
+        class SlidePresentation {
+            constructor() {
+                this.slides = Array.from(document.querySelectorAll('.slide'));
+                this.currentSlide = 0;
+                this.stage = document.getElementById('deckStage');
+                this.pageIndicator = document.getElementById('pageIndicator');
+                this.setupStageScale();
+                this.setupKeyboardNav();
+                this.setupTouchNav();
+                this.setupControls();
+                this.showSlide(0);
+            }
+
+            setupStageScale() {
+                const scale = () => {
+                    const factor = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+                    const x = (window.innerWidth - 1920 * factor) / 2;
+                    const y = (window.innerHeight - 1080 * factor) / 2;
+                    this.stage.style.transform = `translate(${x}px, ${y}px) scale(${factor})`;
+                };
+                scale();
+                window.addEventListener('resize', scale);
+            }
+
+            setupKeyboardNav() {
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+                        e.preventDefault();
+                        this.next();
+                    } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+                        e.preventDefault();
+                        this.prev();
+                    } else if (e.key === 'Home') {
+                        e.preventDefault();
+                        this.showSlide(0);
+                    } else if (e.key === 'End') {
+                        e.preventDefault();
+                        this.showSlide(this.slides.length - 1);
+                    }
+                });
+            }
+
+            setupTouchNav() {
+                let startX = 0;
+                document.addEventListener('touchstart', (e) => {
+                    startX = e.changedTouches[0].screenX;
+                }, { passive: true });
+                document.addEventListener('touchend', (e) => {
+                    const diff = e.changedTouches[0].screenX - startX;
+                    if (Math.abs(diff) > 50) {
+                        diff < 0 ? this.next() : this.prev();
+                    }
+                }, { passive: true });
+            }
+
+            setupControls() {
+                document.getElementById('prevBtn').addEventListener('click', () => this.prev());
+                document.getElementById('nextBtn').addEventListener('click', () => this.next());
+            }
+
+            next() {
+                this.showSlide(this.currentSlide + 1);
+            }
+
+            prev() {
+                this.showSlide(this.currentSlide - 1);
+            }
+
+            showSlide(index) {
+                this.currentSlide = Math.max(0, Math.min(index, this.slides.length - 1));
+                this.slides.forEach((slide, i) => {
+                    slide.classList.toggle('active', i === this.currentSlide);
+                    slide.classList.toggle('visible', i === this.currentSlide);
+                });
+                this.pageIndicator.textContent = `${this.currentSlide + 1} / ${this.slides.length}`;
+            }
+        }
+
+        new SlidePresentation();
+    </script>
+</body>
+</html>

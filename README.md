@@ -56,3 +56,9 @@ flowchart LR
 | [08-梳理阶段实战.md](08-梳理阶段实战.md) | 梳理即分类、先止血再归类、燃尽度量、棘轮治理（Shopify/Slack 案例） |
 
 建议阅读顺序即编号顺序：先理解怎么建图和怎么控制证据质量，再看怎么做重构决策，最后是工具化和栈特定细节。
+
+## 在线演示
+
+方法论概览幻灯片（GitHub Pages）：https://makotogu.github.io/codebase-analysis-methodology/
+
+本地预览：在浏览器中打开 `docs/index.html`。使用 ← → 或空格翻页。
