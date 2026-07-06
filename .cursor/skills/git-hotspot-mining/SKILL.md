@@ -16,7 +16,11 @@ git 历史挖掘是整套方法论中**普适性最强、成本最低**的工具
 ## 运行
 
 ```bash
+# 单仓库
 python3 scripts/git_miner.py <repo_path> --months 12 --out ./t1-output
+
+# 多仓库工作区（09 篇）：每仓库各出三张 CSV + 跨仓库 co-change
+python3 scripts/git_miner.py <repo1> <repo2> ... --ticket-regex '[A-Z]{2,10}-\d+' --out ./t1-output
 ```
 
 可调参数：
@@ -28,6 +32,10 @@ python3 scripts/git_miner.py <repo_path> --months 12 --out ./t1-output
 | `--mega-threshold` | 50 | 单 commit 涉及文件数超过此值视为巨型 commit |
 | `--min-changes` | 3 | co-change 只统计变更次数 ≥ 此值的文件 |
 | `--exclude` | 无 | 排除路径子串，可多次传（如 `--exclude generated --exclude vendor`） |
+| `--ticket-regex` | `[A-Z]{2,10}-\d+` | 从 commit message 提取工单 ID（跨仓库 co-change 首选路径） |
+| `--window-hours` | 0（关闭） | 同作者时间窗兜底信号，仅产出仓库级耦合，噪音大只看趋势 |
+
+多仓库模式额外产出 `cross-cochange-files.csv`（工单聚合的跨仓库文件对）和 `cross-cochange-repos.csv`（仓库级耦合，`via` 列区分 ticket/window）。工作区级的完整流程（API 边、RPC 边、共享表合并）见 `cross-repo-mapping` 技能。
 
 ## 产出三张 CSV
 

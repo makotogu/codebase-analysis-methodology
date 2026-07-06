@@ -18,6 +18,13 @@
 | 地图成型 | [module-card.md](module-card.md) | 地图卡片 T6（04/07） | 机器段 + 人工段分离 |
 | 立项时 | [refactor-proposal.md](refactor-proposal.md) | 重构提案（03） | 人工，三道证据门槛 |
 
+多仓库工作区（09）追加两个模板：
+
+| 时机 | 模板 | 环节 | 维护方 |
+|---|---|---|---|
+| 多仓库分析第一步 | [repos.yaml](repos.yaml) | 工作区清单（09） | 人工段 |
+| API 边提取后 | [api-edges.yaml](api-edges.yaml) | 前端→后端边（09） | 机器段 + human_note 人工段 |
+
 ## asset-inventory.csv 列说明
 
 CSV 无法内嵌注释，列语义如下：
@@ -41,4 +48,4 @@ CSV 无法内嵌注释，列语义如下：
 1. **机器段与人工段分离**：所有模板中标注"人工段"的字段（`human_note`、`final_label`、glossary 全文、module-card 的 HUMAN SECTION），机器重跑任何分析都不得覆盖。
 2. **每条论断带证据**：没有 file:line 或命令输出支撑的内容，一律标 `inferred` 或 `unverified`，不得写成结论口吻。
 
-配套的 Agent 技能见 `.cursor/skills/`：`git-hotspot-mining`、`entry-census`、`asset-labeling`、`mismatch-detection`。
+配套的 Agent 技能见 `.cursor/skills/`：`git-hotspot-mining`、`entry-census`、`asset-labeling`、`mismatch-detection`、`cross-repo-mapping`（多仓库）。

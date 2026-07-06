@@ -54,6 +54,7 @@ flowchart LR
 | [06-分布式与Dubbo.md](06-分布式与Dubbo.md) | 跨服务调用图、注册中心对账、跨仓库耦合分析、OTel trace 方案选型 |
 | [07-面向人与模型的表示.md](07-面向人与模型的表示.md) | 一份数据两个投影：人类可视化与模型结构化文本的分层设计 |
 | [08-梳理阶段实战.md](08-梳理阶段实战.md) | 梳理即分类、先止血再归类、燃尽度量、棘轮治理（Shopify/Slack 案例） |
+| [09-多仓库联合分析.md](09-多仓库联合分析.md) | 前端×后端工作区：三类跨仓库边、API 边模糊 join、跨仓库 co-change |
 
 建议阅读顺序即编号顺序：先理解怎么建图和怎么控制证据质量，再看怎么做重构决策，最后是工具化和栈特定细节。
 
@@ -61,18 +62,19 @@ flowchart LR
 
 方法论中最难落地的环节是 T1 数据挖掘与资产梳理（全量分类标注）。仓库为此提供两组可直接使用的资产：
 
-**[templates/](templates/README.md)** — 9 个产出物模板，按接手项目的时间线排序使用：
+**[templates/](templates/README.md)** — 11 个产出物模板，按接手项目的时间线排序使用：
 
-指标基线（开工第一周必填）、glossary 术语表、entries 入口清单、访谈问题清单、追踪记录、labels 标签体系、asset-inventory 全量标注表、模块卡片、重构提案（含三道证据门槛）。每个模板都标注了机器段/人工段的维护边界。
+指标基线（开工第一周必填）、glossary 术语表、entries 入口清单、访谈问题清单、追踪记录、labels 标签体系、asset-inventory 全量标注表、模块卡片、重构提案（含三道证据门槛），以及多仓库场景的 repos 工作区清单与 api-edges 前后端边。每个模板都标注了机器段/人工段的维护边界。
 
-**`.cursor/skills/`** — 4 个 Agent 技能，把工具箱固化为可复用的操作流程：
+**`.cursor/skills/`** — 5 个 Agent 技能，把工具箱固化为可复用的操作流程：
 
 | 技能 | 对应 | 用途 |
 |---|---|---|
-| `git-hotspot-mining` | T1 | git 历史挖掘：热点/耦合/知识孤岛，附可运行的 `git_miner.py`（零依赖，已实现时间衰减、巨型 commit 过滤、rename 追踪） |
+| `git-hotspot-mining` | T1 | git 历史挖掘：热点/耦合/知识孤岛，附可运行的 `git_miner.py`（零依赖，已实现时间衰减、巨型 commit 过滤、rename 追踪；多仓库模式产出跨仓库 co-change） |
 | `entry-census` | T2/T2.6 | 入口普查：六类入口扫描 + actuator/注册中心对账流程 |
 | `asset-labeling` | 08 篇 | 梳理核心：批量分类标注（置信度+证据）、co-change 一致性校验、仲裁队列与燃尽 |
 | `mismatch-detection` | T7 | 错位探测：四类错位模式 → 访谈问题清单 → glossary 回填闭环 |
+| `cross-repo-mapping` | 09 篇 | 多仓库工作区：API 边模糊 join（exact/prefix/fuzzy/unmatched）、三类跨仓库边合并、工作区服务地图 |
 
 在 Cursor 中打开本仓库后技能自动生效；也可将 `.cursor/skills/` 目录复制到目标项目仓库使用。
 

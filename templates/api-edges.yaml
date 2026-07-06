@@ -1,0 +1,41 @@
+# =====================================================================
+# api-edges.yaml — 前端 → 后端 API 边（09-多仓库联合分析 第二节）
+# ---------------------------------------------------------------------
+# 前端调后端靠字符串 URL，join 是模糊的，必须显式管理匹配置信度。
+# match 取值：
+#   exact     method + 归一化路径完全匹配
+#   prefix    剥离网关前缀后匹配（前缀规则来自网关路由配置）
+#   fuzzy     占位符对齐匹配（/orders/{*} ~ /orders/{orderId}）
+#   unmatched 找不到后端入口 → 后端死接口候选 or 普查漏洞，人工排查
+# 性质：机器段为主（可重跑覆盖），human_note 为人工段。
+# =====================================================================
+
+- from_repo: web-portal
+  from_evidence: src/api/order.ts:12          # axios.post('/api/v1/orders', ...)
+  method: POST
+  path_pattern: /api/v1/orders
+  to_repo: order-service
+  to_entry: http-order-create                  # 对方 entries.yaml 的 id（stable ID join）
+  match: exact
+  code_evidence_level: verified
+  human_note: ""
+
+- from_repo: admin-web
+  from_evidence: src/services/refund.ts:33     # fetch(`/admin-api/refunds/${id}`)
+  method: GET
+  path_pattern: /admin-api/refunds/{*}
+  to_repo: order-service
+  to_entry: http-refund-detail                 # /refunds/{refundId}，剥离 /admin-api 前缀后 fuzzy 对齐
+  match: fuzzy
+  code_evidence_level: inferred                # fuzzy 匹配一律 inferred，需抓包或日志验证
+  human_note: ""
+
+- from_repo: web-portal
+  from_evidence: src/api/legacy.ts:8           # axios.get('/api/v0/points/summary')
+  method: GET
+  path_pattern: /api/v0/points/summary
+  to_repo: ""
+  to_entry: ""
+  match: unmatched                             # 所有后端路由表均无此路径
+  code_evidence_level: unverified
+  human_note: "据王五：积分系统 2024 年已下线，前端死代码候选（2026-07）"
