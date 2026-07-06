@@ -1,0 +1,60 @@
+# =====================================================================
+# repos.yaml — 工作区清单（09-多仓库联合分析 第一节）
+# ---------------------------------------------------------------------
+# 多仓库分析的第一步：这张表是完备的分母，进度、覆盖率、遗漏检查
+# 都以它为准。仓库 name 是所有 stable ID 的前缀（web-portal::src/...）。
+# kind 取值：frontend | backend | bff | lib | infra
+# 性质：人工段（仓库增减由人维护）；analyzed 列可由工具回写。
+# =====================================================================
+
+- name: web-portal
+  path: ../web-portal            # 相对本工作区目录的路径
+  kind: frontend
+  language: typescript
+  service: portal                 # 对应的逻辑服务名（部署单元）
+  api_client_dirs:                # 前端 API 封装层位置（API 边扫描入口）
+    - src/api
+  owner: 前端组-张三
+  notes: ""
+
+- name: admin-web
+  path: ../admin-web
+  kind: frontend
+  language: typescript
+  service: admin
+  api_client_dirs:
+    - src/services
+  owner: 前端组-张三
+  notes: 走 admin 网关，路径前缀 /admin-api 需剥离后再 join
+
+- name: order-service
+  path: ../order-service
+  kind: backend
+  language: java
+  service: order
+  owner: 交易组-李四
+  notes: ""
+
+- name: user-service
+  path: ../user-service
+  kind: backend
+  language: java
+  service: user
+  owner: 账户组-王五
+  notes: ""
+
+- name: portal-bff
+  path: ../portal-bff
+  kind: bff                       # BFF 两侧都要扫：对前端是 provider，对后端是 consumer
+  language: node
+  service: portal-bff
+  owner: 前端组-张三
+  notes: ""
+
+- name: common-lib
+  path: ../common-lib
+  kind: lib                       # 共享库：不参与 API 边，但参与 co-change 与共享表分析
+  language: java
+  service: ""
+  owner: 架构组
+  notes: 被所有后端仓库依赖，热点变更会放大到全工作区
