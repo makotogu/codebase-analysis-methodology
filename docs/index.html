@@ -21,6 +21,10 @@
             --warm-dim: rgba(143, 107, 66, 0.1);
             --danger: #b85a4a;
             --danger-dim: rgba(184, 90, 74, 0.08);
+            --green: #53745a;
+            --green-dim: rgba(83, 116, 90, 0.1);
+            --ink: #2f4e61;
+            --ink-dim: rgba(47, 78, 97, 0.09);
             --border: rgba(42, 35, 24, 0.1);
             --border-strong: rgba(42, 35, 24, 0.16);
             --shadow: 0 1px 2px rgba(42, 35, 24, 0.04), 0 8px 24px rgba(42, 35, 24, 0.05);
@@ -371,6 +375,20 @@
             box-shadow: none;
         }
 
+        .panel.green {
+            border-color: rgba(83, 116, 90, 0.22);
+            border-left: 4px solid var(--green);
+            background: #fbfdf9;
+            box-shadow: none;
+        }
+
+        .panel.ink {
+            border-color: rgba(47, 78, 97, 0.18);
+            border-left: 4px solid var(--ink);
+            background: #fbfcfd;
+            box-shadow: none;
+        }
+
         .panel-action {
             margin-top: 20px;
             padding-top: 18px;
@@ -581,6 +599,10 @@
             width: 100%;
         }
 
+        .tool-grid.cols-3 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
         .tool-card {
             background: var(--bg-panel);
             border: 1px solid var(--border);
@@ -598,6 +620,10 @@
             color: var(--accent);
             line-height: 1;
         }
+
+        .tool-card.green .id { color: var(--green); }
+        .tool-card.ink .id { color: var(--ink); }
+        .tool-card.warm .id { color: var(--warm); }
 
         .tool-card p {
             font-size: 22px;
@@ -661,6 +687,133 @@
 
         .code-block .cm { color: var(--text-muted); }
         .code-block .k { color: var(--accent); }
+
+        .artifact-flow {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 18px;
+            width: 100%;
+        }
+
+        .artifact {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 22px 24px;
+        }
+
+        .artifact strong {
+            display: block;
+            font-family: var(--font-mono);
+            font-size: 22px;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .artifact span {
+            display: block;
+            font-size: 21px;
+            line-height: 1.42;
+            color: var(--text-muted);
+        }
+
+        .artifact.hot { border-left: 4px solid var(--accent); }
+        .artifact.entry { border-left: 4px solid var(--ink); }
+        .artifact.human { border-left: 4px solid var(--green); }
+
+        .workspace-map {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 18px;
+            align-items: stretch;
+        }
+
+        .edge-card {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 28px 30px;
+            min-height: 260px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .edge-card h3 {
+            font-size: 34px;
+            margin-bottom: 12px;
+        }
+
+        .edge-card p {
+            font-size: var(--body-sm);
+            line-height: 1.48;
+        }
+
+        .edge-card .confidence {
+            margin-top: 18px;
+            font-size: 18px;
+            color: var(--text-muted);
+            padding-top: 14px;
+            border-top: 1px solid var(--border);
+        }
+
+        .skill-ladder {
+            display: grid;
+            grid-template-columns: 1.1fr 1.6fr;
+            gap: 24px;
+            align-items: stretch;
+        }
+
+        .skill-hub {
+            min-height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            text-align: center;
+            padding: 48px 44px;
+            border-radius: 14px;
+            background: #fffaf4;
+            border: 1px solid rgba(168, 90, 50, 0.26);
+            box-shadow: var(--shadow);
+        }
+
+        .skill-hub code {
+            font-family: var(--font-mono);
+            font-size: 30px;
+            color: var(--accent);
+        }
+
+        .skill-hub p {
+            margin-top: 18px;
+            font-size: var(--body-sm);
+            line-height: 1.48;
+        }
+
+        .skill-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .skill-item {
+            padding: 20px 22px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--bg-panel);
+        }
+
+        .skill-item code {
+            font-family: var(--font-mono);
+            font-size: 20px;
+            color: var(--text-primary);
+        }
+
+        .skill-item p {
+            margin-top: 8px;
+            font-size: 20px;
+            line-height: 1.38;
+            color: var(--text-muted);
+        }
 
         .phase-band {
             display: grid;
@@ -798,7 +951,7 @@
                         <span class="badge">建图 · 证据 · 决策 · 梳理 · 执行 · 工具箱</span>
                         <span class="badge">makotogu/codebase-analysis-methodology</span>
                     </div>
-                    <p class="meta reveal">← → 或空格翻页 · 27 页深度版</p>
+                    <p class="meta reveal">← → 或空格翻页 · 35 页工具包版</p>
                 </div>
             </section>
 
@@ -1471,7 +1624,224 @@
                 </div>
             </section>
 
-            <!-- P26: 人机分工 -->
+            <!-- P26: 多仓库工作区 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第七部分 · 多仓库联合分析</p>
+                        <h2 class="reveal">真实系统的单位是工作区，不是仓库</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel ink reveal">
+                                <h3>第一步永远是 repos.yaml</h3>
+                                <p>前端 x 个仓库、后端 y 个仓库、BFF、lib，都先放进同一张工作区清单：name / path / kind / language / service / api_client_dirs。</p>
+                                <p style="margin-top:14px">这张表就是多仓库分析的<strong style="color:var(--text-primary)">分母</strong>。覆盖率、遗漏检查、stable ID 都从这里开始。</p>
+                            </div>
+                            <div class="panel reveal">
+                                <h3>stable ID 必须带仓库前缀</h3>
+                                <div class="code-block" style="font-size:20px;line-height:1.55;margin-top:4px"><span class="cm"># 全局唯一，不再只看单仓库路径</span>
+web-portal::src/api/order.ts
+order-service::src/main/java/.../OrderController.java
+bff-mobile::src/routes/order.ts</div>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">单仓库工具仍然照常跑；新增的是工作区级的合并视图：API 边、RPC 边、共享表边、跨仓库 co-change，以及唯一一份跨前后端 glossary。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P27: 三类跨仓库边 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第七部分 · 多仓库联合分析</p>
+                        <h2 class="reveal">三类跨仓库边，静态可得性决定打法</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="workspace-map reveal">
+                            <div class="edge-card">
+                                <div>
+                                    <h3>RPC 边</h3>
+                                    <p>后端 ↔ 后端。Dubbo 强类型接口是天然 join key：FQCN + version + group 静态 join，再与注册中心 dump 对账。</p>
+                                </div>
+                                <div class="confidence">证据上限：对账后 verified</div>
+                            </div>
+                            <div class="edge-card">
+                                <div>
+                                    <h3>API 边</h3>
+                                    <p>前端 → 后端。扫 axios/fetch/API client，路径归一化后与后端 entries.yaml 里的 HTTP 路由 join。</p>
+                                </div>
+                                <div class="confidence">match：exact / prefix / fuzzy / unmatched</div>
+                            </div>
+                            <div class="edge-card">
+                                <div>
+                                    <h3>共享表边</h3>
+                                    <p>任意 ↔ 任意。MyBatis/JPA 在所有后端仓库跑，合并成"表 × 服务"读写矩阵。</p>
+                                </div>
+                                <div class="confidence">最高优先级假拆证据</div>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">API 边最容易骗人：前端 URL 是字符串，join 必须显式标置信度。`unmatched` 不是直接结论，而是后端下线、前端漏扫、网关前缀或动态拼接的验证队列。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P28: 跨仓库 co-change -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第七部分 · 多仓库联合分析</p>
+                        <h2 class="reveal">跨仓库 co-change：工单 ID 优先，时间窗兜底</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel green reveal">
+                                <h3>高质量信号：工单 ID</h3>
+                                <p>commit message 有需求/工单号规范（如 <code style="font-family:var(--font-mono);font-size:0.85em">PAY-123</code>）时，按工单聚合跨仓库变更集。</p>
+                                <p style="margin-top:14px">一个需求总要同时改 ≥2 个<strong style="color:var(--text-primary)">后端</strong>仓库，就是服务边界切错的铁证。</p>
+                            </div>
+                            <div class="panel danger reveal">
+                                <h3>弱趋势信号：时间窗</h3>
+                                <p>完全没有工单规范时，才用"同一作者在 ±N 小时内多个仓库提交"近似。</p>
+                                <p style="margin-top:14px">噪音大，只用于仓库级趋势。不能下钻到文件级，也不能写成 verified 结论。</p>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">前端仓库与页面域对应后端长期强耦合通常是正常现象；值得警惕的是前端总和不属于它页面域的后端耦合，或多个后端仓库总被同一个工单一起改。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P29: 模板即契约 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第八部分 · 模板与工具包</p>
+                        <h2 class="reveal">templates/：把方法论变成可审计的产出物契约</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="artifact-flow reveal">
+                            <div class="artifact human"><strong>metrics-baseline.md</strong><span>开工第一周：先立构建、测试、质量、梳理进度基线</span></div>
+                            <div class="artifact human"><strong>glossary.yaml</strong><span>人工段：代码术语 ↔ 业务含义 ↔ 负责人 ↔ 确认日期</span></div>
+                            <div class="artifact entry"><strong>entries.yaml</strong><span>T2 入口骨架：entry_id、类型、file:line、runtime_status</span></div>
+                            <div class="artifact hot"><strong>interview-questions.md</strong><span>T7 输出：把错位探测转成可回答的问题，而不是结论</span></div>
+                            <div class="artifact entry"><strong>trace-record.md</strong><span>验证记录：真实调试、日志插桩、源码推演分级</span></div>
+                            <div class="artifact human"><strong>labels.yaml</strong><span>梳理启动前：业务概念标签体系，由干系人确认</span></div>
+                            <div class="artifact hot"><strong>asset-inventory.csv</strong><span>全量分类标注：机器提议 + 人工仲裁 + 燃尽度量</span></div>
+                            <div class="artifact entry"><strong>module-card.md</strong><span>T6 地图卡片：机器段与人工段分离，可重跑可 review</span></div>
+                            <div class="artifact hot"><strong>refactor-proposal.md</strong><span>立项时：热点/耦合、业务确认、收益假设三道门槛</span></div>
+                        </div>
+                        <p class="slide-footnote reveal">模板的价值不是格式漂亮，而是把"哪些字段机器可覆盖、哪些字段只能人写"固定下来。否则 Agent 每次重跑都会把人的投入冲掉。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P30: 新增多仓库模板 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第八部分 · 模板与工具包</p>
+                        <h2 class="reveal">多仓库追加两个模板：分母与前后端边</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel ink reveal">
+                                <h3>repos.yaml</h3>
+                                <p>工作区清单，定义所有仓库的 name / path / kind / service / api_client_dirs。它是多仓库分析的第一张表。</p>
+                                <p class="panel-action">没有 repos.yaml，就不要谈工作区覆盖率</p>
+                            </div>
+                            <div class="panel accent reveal">
+                                <h3>api-edges.yaml</h3>
+                                <p>记录前端调用点与后端 HTTP 入口的 join 结果：source、target、method、path、match_type、evidence、human_note。</p>
+                                <p class="panel-action">fuzzy/unmatched 是验证队列，不是结论</p>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">09 篇补上的关键空白：真实系统常常不是一个仓库。多仓库分析先定义工作区分母，再把 API/RPC/共享表/co-change 四类信号合并成服务地图。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P31: Agent skills -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第八部分 · 模板与工具包</p>
+                        <h2 class="reveal">Agent skills：工具节点需要一个总控入口</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="skill-ladder">
+                            <div class="skill-hub reveal">
+                                <code>$codebase-analysis</code>
+                                <p>总控 skill。先判断单仓库/多仓库、当前阶段、缺少哪些证据，再路由到具体工具节点。</p>
+                            </div>
+                            <div class="skill-list reveal">
+                                <div class="skill-item"><code>$git-hotspot-mining</code><p>T1：热点、co-change、ownership；附可运行 git_miner.py</p></div>
+                                <div class="skill-item"><code>$entry-census</code><p>T2/T2.6：HTTP、cron、MQ、event、rpc-in、rpc-out</p></div>
+                                <div class="skill-item"><code>$asset-labeling</code><p>梳理核心：全量分类标注、置信度、仲裁队列、燃尽</p></div>
+                                <div class="skill-item"><code>$mismatch-detection</code><p>T7：只扫热点，输出访谈问题，不输出业务结论</p></div>
+                                <div class="skill-item"><code>$cross-repo-mapping</code><p>09：workspace、API 边、RPC 边、共享表、跨仓库 co-change</p></div>
+                                <div class="skill-item"><code>$frontend-slides</code><p>本演示文稿的生成与 Pages 展示工具</p></div>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">单独看 T2/T7 会断：它们靠 artifact 流连接。入口、热点、trace、glossary、访谈问题必须一起看，才是完整工作流。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P32: T2 到 T7 的 artifact 流 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第八部分 · 模板与工具包</p>
+                        <h2 class="reveal">T2 和 T7 靠 artifact 流连接，不靠记忆</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="flow-track reveal">
+                            <div class="flow-step"><span class="step-num">T1</span><strong>hotspot.csv</strong><span class="step-desc">决定哪些模块值得专家时间</span></div>
+                            <div class="flow-step"><span class="step-num">T2</span><strong>entries.yaml</strong><span class="step-desc">给出入口骨架与 file:line 锚点</span></div>
+                            <div class="flow-step"><span class="step-num">TR</span><strong>trace-record</strong><span class="step-desc">记录选中旅程真实做了什么</span></div>
+                            <div class="flow-step"><span class="step-num">T7</span><strong>questions</strong><span class="step-desc">把命名/行为错位变成访谈问题</span></div>
+                            <div class="flow-step"><span class="step-num">G</span><strong>glossary</strong><span class="step-desc">具名确认后回填，注入下一轮</span></div>
+                        </div>
+                        <p class="slide-footnote reveal">这就是为什么需要总控 skill：工具节点只知道局部任务；`$codebase-analysis` 负责判断现在缺的是入口、热点、trace、访谈，还是业务确认。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P33: Runnable T1 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第八部分 · 模板与工具包</p>
+                        <h2 class="reveal">T1 已经从方法论变成可运行脚本</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="reveal"><div class="code-block"><span class="cm"># 单仓库：当天得到三张 CSV</span>
+python3 scripts/git_miner.py . \
+  --months 12 \
+  --out notes/t1
+
+<span class="cm"># 多仓库：加上工单 ID 跨仓库 co-change</span>
+python3 scripts/git_miner.py repo-a repo-b \
+  --ticket-regex '[A-Z]{2,10}-\d+' \
+  --out workspace/t1</div></div>
+                            <div class="panel green reveal">
+                                <h3>脚本已经处理三个坑</h3>
+                                <ul class="clean sm">
+                                    <li><strong style="color:var(--text-primary)">时间衰减</strong>：上月变更权重大于一年前</li>
+                                    <li><strong style="color:var(--text-primary)">巨型 commit</strong>：co-change 剔除、热点降权</li>
+                                    <li><strong style="color:var(--text-primary)">rename 追踪</strong>：历史归并到当前路径</li>
+                                </ul>
+                                <p class="panel-action">产出 hotspot.csv / cochange.csv / ownership.csv</p>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">这是整个工具包的落地点：先用确定性脚本拿到数据，再让 LLM 做归因、摘要和错位探测。不要把采集层交给模型猜。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P34: 人机分工 -->
             <section class="slide grid-bg">
                 <div class="slide-inner">
                     <div class="slide-head">
@@ -1506,25 +1876,25 @@
                 </div>
             </section>
 
-            <!-- P27: 结语 -->
+            <!-- P35: 结语 -->
             <section class="slide title-slide grid-bg">
                 <div class="slide-inner">
                     <p class="eyebrow reveal">你的第一周</p>
-                    <h2 class="reveal closing-title">先建图，再验证，用证据说话</h2>
+                    <h2 class="reveal closing-title">先定义分母，再跑工具，用证据说话</h2>
                     <div class="panel reveal" style="margin-top:36px;max-width:1100px">
                         <ol class="steps" style="gap:13px">
-                            <li style="font-size:var(--body-sm)">跑 <strong>T1 git 挖掘</strong>——当天拿到热点/耦合/孤岛清单</li>
-                            <li style="font-size:var(--body-sm)">查 <strong>actuator 与注册中心</strong>——这些是白捡的运行时真相</li>
-                            <li style="font-size:var(--body-sm)">建 <strong>notes/ 与 glossary.yaml</strong>——知识沉淀从第一天开始</li>
-                            <li style="font-size:var(--body-sm)">盘点 <strong>stalled migrations</strong>——能收尾的收尾，不能的冻结</li>
-                            <li style="font-size:var(--body-sm)">选<strong>一条端到端旅程</strong>做第一次运行时验证</li>
+                            <li style="font-size:var(--body-sm)">用 <strong>$codebase-analysis</strong> 作为入口——先判断单仓库/多仓库与当前阶段</li>
+                            <li style="font-size:var(--body-sm)">跑 <strong>$git-hotspot-mining</strong>——当天拿到热点/耦合/孤岛清单</li>
+                            <li style="font-size:var(--body-sm)">跑 <strong>$entry-census</strong>——入口骨架与运行时对账是后续 trace 的锚点</li>
+                            <li style="font-size:var(--body-sm)">建 <strong>templates/ 里的 glossary 与 notes</strong>——人工段从第一天保护起来</li>
+                            <li style="font-size:var(--body-sm)">选<strong>一条端到端旅程</strong>做第一次运行时验证，再把热点喂给 T7 访谈问题</li>
                         </ol>
                     </div>
                     <div class="badge-row reveal closing-links">
                         <span class="badge"><a href="https://github.com/makotogu/codebase-analysis-methodology">GitHub 仓库</a></span>
-                        <span class="badge"><a href="https://github.com/makotogu/codebase-analysis-methodology/blob/cursor/codebase-analysis-methodology-docs/README.md">完整文档（8 篇）</a></span>
+                        <span class="badge"><a href="https://github.com/makotogu/codebase-analysis-methodology/blob/cursor/codebase-analysis-methodology-docs/README.md">完整文档（9 篇 + templates + skills）</a></span>
                     </div>
-                    <p class="meta reveal">存量大型代码库分析方法论 · 深度版演示文稿</p>
+                    <p class="meta reveal">存量大型代码库分析方法论 · Pages 工具包版</p>
                 </div>
             </section>
 
@@ -1533,7 +1903,7 @@
 
     <nav class="deck-controls" aria-label="幻灯片导航">
         <button type="button" id="prevBtn" aria-label="上一页">‹</button>
-        <span id="pageIndicator">1 / 27</span>
+        <span id="pageIndicator">1 / 35</span>
         <button type="button" id="nextBtn" aria-label="下一页">›</button>
     </nav>
 
@@ -1548,7 +1918,16 @@
                 this.setupKeyboardNav();
                 this.setupTouchNav();
                 this.setupControls();
-                this.showSlide(0);
+                this.showSlide(this.getInitialIndex(), { updateHash: false });
+            }
+
+            getInitialIndex() {
+                const raw = window.location.hash.replace('#', '');
+                const page = Number.parseInt(raw, 10);
+                if (Number.isFinite(page) && page >= 1 && page <= this.slides.length) {
+                    return page - 1;
+                }
+                return 0;
             }
 
             setupStageScale() {
@@ -1606,13 +1985,17 @@
                 this.showSlide(this.currentSlide - 1);
             }
 
-            showSlide(index) {
+            showSlide(index, options = {}) {
+                const { updateHash = true } = options;
                 this.currentSlide = Math.max(0, Math.min(index, this.slides.length - 1));
                 this.slides.forEach((slide, i) => {
                     slide.classList.toggle('active', i === this.currentSlide);
                     slide.classList.toggle('visible', i === this.currentSlide);
                 });
                 this.pageIndicator.textContent = `${this.currentSlide + 1} / ${this.slides.length}`;
+                if (updateHash) {
+                    history.replaceState(null, '', `#${this.currentSlide + 1}`);
+                }
             }
         }
 
