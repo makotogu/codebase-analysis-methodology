@@ -1,0 +1,4 @@
+unit_id,path,unit_type,proposed_label,confidence,evidence,cochange_cluster,status,final_label,arbitrated_by,arbitrated_date,note
+com.acme.order.OrderController,src/main/java/com/acme/order/OrderController.java,class,order,high,routes /api/v1/orders; calls OrderService; writes t_order,c01,human-confirmed,order,张三,2026-07-10,
+com.acme.settle.SettleService,src/main/java/com/acme/settle/SettleService.java,class,settlement,medium,name suggests settlement; reads t_channel_flow; called by ReconJob,c04,needs-arbitration,reconciliation,李四,2026-07-12,命名漂移：实际做对账（见 glossary）
+com.acme.common.DateUtils,src/main/java/com/acme/common/DateUtils.java,class,shared-kernel,low,called by 14 classes across 5 labels; no table access,c—,machine-proposed,,,,进 shared-kernel 需人工确认

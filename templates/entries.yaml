@@ -1,0 +1,63 @@
+# =====================================================================
+# entries.yaml — 入口普查清单（T2，04-工具箱设计 / 05-Java-Spring落地指南）
+# ---------------------------------------------------------------------
+# 性质：机器段为主（可重跑覆盖），human_note 为人工段（重跑保留）。
+# id 规则：全局唯一、稳定，与 entry_weights.csv（T4 收口点产出）的
+#          entry_id 一致，两边才能 join。
+# type 取值：http | cron | mq | event | webhook | rpc-in | rpc-out
+# runtime_status 来自对账（actuator / 注册中心 / 收口点日志）：
+#   active         观测到真实流量
+#   dead-candidate 静态有、运行时没有（条件未激活或死代码）
+#   gap            运行时有、静态没有（普查漏洞：动态注册等）
+#   unknown        尚未对账
+# =====================================================================
+
+- id: http-order-create
+  type: http
+  route: POST /api/v1/orders
+  entry_fn: com.acme.order.OrderController#create
+  evidence: src/main/java/com/acme/order/OrderController.java:42
+  claimed_purpose: 创建订单
+  code_evidence_level: verified        # verified | inferred | unverified
+  runtime_status: active
+  human_note: ""
+
+- id: cron-daily-clearing
+  type: cron
+  route: "0 30 2 * * ?"                # cron 表达式 / 调度平台任务 ID
+  entry_fn: com.acme.clearing.ClearingJob#run
+  evidence: src/main/java/com/acme/clearing/ClearingJob.java:31
+  claimed_purpose: 每日清算文件生成
+  code_evidence_level: verified
+  runtime_status: unknown
+  human_note: "据李四：月底最后一天会手工补跑一次，入口在运维脚本里"   # 人工段
+
+- id: mq-payment-callback
+  type: mq
+  route: topic=pay.result.notify, group=order-consumer
+  entry_fn: com.acme.order.PayResultConsumer#onMessage
+  evidence: src/main/java/com/acme/order/PayResultConsumer.java:28
+  claimed_purpose: 支付结果回调消费
+  code_evidence_level: verified
+  runtime_status: active
+  human_note: ""
+
+- id: rpc-in-inventory-lock
+  type: rpc-in                         # Dubbo provider（06 篇：入边）
+  route: com.acme.api.InventoryService:1.0.0:default   # FQCN:version:group
+  entry_fn: com.acme.inventory.InventoryServiceImpl#lock
+  evidence: src/main/java/com/acme/inventory/InventoryServiceImpl.java:55
+  claimed_purpose: 库存锁定
+  code_evidence_level: verified
+  runtime_status: unknown              # 待与注册中心 dump 对账
+  human_note: ""
+
+- id: rpc-out-user-query
+  type: rpc-out                        # Dubbo consumer（出口普查：我依赖谁）
+  route: com.acme.api.UserService:1.0.0:default
+  entry_fn: com.acme.order.OrderQueryService#enrichUser
+  evidence: src/main/java/com/acme/order/OrderQueryService.java:77
+  claimed_purpose: 下单链路查用户信息
+  code_evidence_level: verified
+  runtime_status: unknown
+  human_note: ""

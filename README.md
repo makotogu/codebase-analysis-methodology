@@ -57,6 +57,25 @@ flowchart LR
 
 建议阅读顺序即编号顺序：先理解怎么建图和怎么控制证据质量，再看怎么做重构决策，最后是工具化和栈特定细节。
 
+## 落地工具包：模板与 Agent 技能
+
+方法论中最难落地的环节是 T1 数据挖掘与资产梳理（全量分类标注）。仓库为此提供两组可直接使用的资产：
+
+**[templates/](templates/README.md)** — 9 个产出物模板，按接手项目的时间线排序使用：
+
+指标基线（开工第一周必填）、glossary 术语表、entries 入口清单、访谈问题清单、追踪记录、labels 标签体系、asset-inventory 全量标注表、模块卡片、重构提案（含三道证据门槛）。每个模板都标注了机器段/人工段的维护边界。
+
+**`.cursor/skills/`** — 4 个 Agent 技能，把工具箱固化为可复用的操作流程：
+
+| 技能 | 对应 | 用途 |
+|---|---|---|
+| `git-hotspot-mining` | T1 | git 历史挖掘：热点/耦合/知识孤岛，附可运行的 `git_miner.py`（零依赖，已实现时间衰减、巨型 commit 过滤、rename 追踪） |
+| `entry-census` | T2/T2.6 | 入口普查：六类入口扫描 + actuator/注册中心对账流程 |
+| `asset-labeling` | 08 篇 | 梳理核心：批量分类标注（置信度+证据）、co-change 一致性校验、仲裁队列与燃尽 |
+| `mismatch-detection` | T7 | 错位探测：四类错位模式 → 访谈问题清单 → glossary 回填闭环 |
+
+在 Cursor 中打开本仓库后技能自动生效；也可将 `.cursor/skills/` 目录复制到目标项目仓库使用。
+
 ## 在线演示
 
 方法论概览幻灯片（GitHub Pages）：https://makotogu.github.io/codebase-analysis-methodology/

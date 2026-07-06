@@ -1,0 +1,43 @@
+# =====================================================================
+# labels.yaml — 标签体系：目标组件清单（08-梳理阶段实战 第一节）
+# ---------------------------------------------------------------------
+# 前置条件：梳理（全量分类标注）开始之前必须先立这张表。
+# 三条规则：
+#   1. 标签来自业务概念（订单/运费/计费），不是技术层次（MVC/DAO）；
+#   2. 由各领域干系人共同给出并确认，不是架构师单方面拍的；
+#   3. 数量控制在几十个以内——超过说明粒度切得太细。
+# 性质：人工段。asset-labeling 技能只能引用这里的标签，禁止发明新标签；
+#       发现"哪个标签都不合适"的单元时，应提出 label-gap 而不是硬塞。
+# =====================================================================
+
+- label: order                # 稳定 ID：小写英文，进 asset-inventory.csv 的 proposed_label 列
+  name_cn: 订单
+  description: 订单生命周期——创建、支付回调、状态机流转、取消与退款入口
+  owner: 张三                  # 业务干系人，仲裁归属争议时的裁决人
+  status: confirmed            # confirmed | draft
+
+- label: reconciliation
+  name_cn: 对账
+  description: 与外部渠道的流水核对；注意 SettleService 实际属于这里（见 glossary）
+  owner: 李四
+  status: confirmed
+
+- label: settlement
+  name_cn: 结算
+  description: 清算文件生成与出款指令；核心入口是 ClearingJob
+  owner: 李四
+  status: draft
+
+# ---- 特殊标签（保留，勿删） ----
+
+- label: shared-kernel
+  name_cn: 公共内核
+  description: 被 ≥3 个业务概念依赖的通用代码；进入此标签需人工确认，防止它变成垃圾抽屉
+  owner: 架构组
+  status: confirmed
+
+- label: dead-candidate
+  name_cn: 死代码候选
+  description: 生产 profiler / 类加载记录中长期未出现的单元；删除前需业务确认
+  owner: 架构组
+  status: confirmed
