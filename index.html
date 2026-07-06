@@ -1,0 +1,2017 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>存量大型代码库分析方法论 · 重构牵头人作战手册</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap">
+    <style>
+        :root {
+            --stage-bg: #e8e0d4;
+            --slide-bg: #f6f1e8;
+            --bg-panel: #fffdf9;
+            --bg-code: #f0e8d9;
+            --text-primary: #2a2318;
+            --text-secondary: #5a5044;
+            --text-muted: #8c8172;
+            --accent: #a85a32;
+            --accent-soft: #c4935a;
+            --accent-dim: rgba(168, 90, 50, 0.1);
+            --warm: #8f6b42;
+            --warm-dim: rgba(143, 107, 66, 0.1);
+            --danger: #b85a4a;
+            --danger-dim: rgba(184, 90, 74, 0.08);
+            --green: #53745a;
+            --green-dim: rgba(83, 116, 90, 0.1);
+            --ink: #2f4e61;
+            --ink-dim: rgba(47, 78, 97, 0.09);
+            --border: rgba(42, 35, 24, 0.1);
+            --border-strong: rgba(42, 35, 24, 0.16);
+            --shadow: 0 1px 2px rgba(42, 35, 24, 0.04), 0 8px 24px rgba(42, 35, 24, 0.05);
+            --font-display: 'Newsreader', Georgia, serif;
+            --font-body: 'DM Sans', sans-serif;
+            --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
+            --title-size: 84px;
+            --h2-size: 44px;
+            --h3-size: 26px;
+            --body-size: 29px;
+            --body-sm: 25px;
+            --small-size: 20px;
+            --slide-padding-x: 96px;
+            --slide-padding-y: 68px;
+            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+            --duration-normal: 0.55s;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            background: var(--stage-bg);
+        }
+
+        .deck-viewport {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            background: var(--stage-bg);
+        }
+
+        .deck-stage {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            transform-origin: 0 0;
+            background: var(--slide-bg);
+        }
+
+        .slide {
+            position: absolute;
+            inset: 0;
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            display: block;
+            visibility: hidden;
+            opacity: 0;
+            pointer-events: none;
+            background: var(--slide-bg);
+            color: var(--text-primary);
+            font-family: var(--font-body);
+        }
+
+        .slide.active,
+        .slide.visible {
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
+            z-index: 1;
+        }
+
+        img, video, canvas, svg {
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .deck-controls {
+            position: fixed;
+            left: 50%;
+            bottom: 22px;
+            transform: translateX(-50%);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            padding: 10px 20px;
+            border-radius: 999px;
+            background: rgba(255, 253, 249, 0.92);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            color: var(--text-muted);
+            font-family: var(--font-body);
+            font-size: 14px;
+        }
+
+        .deck-controls button {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--slide-bg);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 18px;
+            transition: background 0.2s, border-color 0.2s, color 0.2s;
+        }
+
+        .deck-controls button:hover {
+            background: var(--accent-dim);
+            border-color: rgba(168, 90, 50, 0.28);
+            color: var(--accent);
+        }
+
+        .slide::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 720px 480px at 92% 8%, rgba(196, 147, 90, 0.12), transparent 62%),
+                radial-gradient(ellipse 560px 420px at 4% 96%, rgba(168, 90, 50, 0.07), transparent 58%);
+            pointer-events: none;
+        }
+
+        .grid-bg::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: linear-gradient(rgba(42, 35, 24, 0.025) 1px, transparent 1px);
+            background-size: 100% 48px;
+            mask-image: linear-gradient(to bottom, black 0%, black 85%, transparent 100%);
+            pointer-events: none;
+        }
+
+        .slide-inner {
+            position: relative;
+            z-index: 1;
+            height: 100%;
+            padding: var(--slide-padding-y) var(--slide-padding-x);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .slide-head {
+            flex-shrink: 0;
+            margin-bottom: 32px;
+        }
+
+        .slide-head .eyebrow {
+            margin-bottom: 12px;
+        }
+
+        .slide-head h2 {
+            margin-bottom: 0;
+            max-width: 100%;
+            line-height: 1.12;
+            white-space: nowrap;
+        }
+
+        .slide-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 0;
+        }
+
+        .slide-footnote {
+            margin-top: 26px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+            font-size: var(--body-sm);
+            line-height: 1.55;
+            color: var(--text-secondary);
+        }
+
+        .slide-footnote strong {
+            color: var(--warm);
+            font-weight: 600;
+        }
+
+        .eyebrow {
+            font-family: var(--font-body);
+            font-size: 16px;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: var(--accent);
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        h1, h2, h3 {
+            font-family: var(--font-display);
+            font-weight: 500;
+            line-height: 1.08;
+            color: var(--text-primary);
+        }
+
+        h1 {
+            font-size: var(--title-size);
+            max-width: 14ch;
+        }
+
+        h2 {
+            font-size: var(--h2-size);
+            margin-bottom: 0;
+        }
+
+        h3 {
+            font-size: var(--h3-size);
+            margin-bottom: 16px;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        p, li {
+            font-size: var(--body-size);
+            line-height: 1.6;
+            color: var(--text-secondary);
+        }
+
+        .subtitle {
+            font-size: 32px;
+            color: var(--text-secondary);
+            margin-top: 24px;
+            max-width: 28ch;
+            line-height: 1.5;
+        }
+
+        .meta {
+            margin-top: auto;
+            font-size: var(--small-size);
+            color: var(--text-muted);
+        }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(28px);
+            transition: opacity var(--duration-normal) var(--ease-out-expo),
+                        transform var(--duration-normal) var(--ease-out-expo);
+        }
+
+        .slide.visible .reveal {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .reveal:nth-child(1) { transition-delay: 0.05s; }
+        .reveal:nth-child(2) { transition-delay: 0.12s; }
+        .reveal:nth-child(3) { transition-delay: 0.19s; }
+        .reveal:nth-child(4) { transition-delay: 0.26s; }
+        .reveal:nth-child(5) { transition-delay: 0.33s; }
+        .reveal:nth-child(6) { transition-delay: 0.40s; }
+
+        .title-slide .slide-inner {
+            justify-content: center;
+        }
+
+        .title-slide h1 span {
+            display: block;
+            color: var(--text-primary);
+        }
+
+        .badge-row {
+            display: flex;
+            gap: 16px;
+            margin-top: 40px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            padding: 10px 18px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-panel);
+            font-size: 20px;
+            color: var(--text-secondary);
+        }
+
+        .closing-title {
+            font-size: 64px;
+            max-width: 15ch;
+            line-height: 1.1;
+        }
+
+        .title-slide .badge {
+            font-size: 18px;
+        }
+
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 28px;
+            width: 100%;
+        }
+
+        .three-col {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            width: 100%;
+        }
+
+        .panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 34px 38px;
+            box-shadow: var(--shadow);
+        }
+
+        .panel p,
+        .panel li {
+            font-size: var(--body-size);
+        }
+
+        .panel.compact {
+            padding: 28px 32px;
+        }
+
+        .panel.compact p,
+        .panel.compact li {
+            font-size: var(--body-sm);
+        }
+
+        .panel.accent {
+            border-color: rgba(168, 90, 50, 0.22);
+            border-left: 4px solid var(--accent);
+            box-shadow: none;
+        }
+
+        .panel.warm {
+            border-color: rgba(143, 107, 66, 0.2);
+            border-left: 4px solid var(--warm);
+            box-shadow: none;
+        }
+
+        .panel.danger {
+            border-color: rgba(184, 90, 74, 0.2);
+            border-left: 4px solid var(--danger);
+            background: #fffaf8;
+            box-shadow: none;
+        }
+
+        .panel.green {
+            border-color: rgba(83, 116, 90, 0.22);
+            border-left: 4px solid var(--green);
+            background: #fbfdf9;
+            box-shadow: none;
+        }
+
+        .panel.ink {
+            border-color: rgba(47, 78, 97, 0.18);
+            border-left: 4px solid var(--ink);
+            background: #fbfcfd;
+            box-shadow: none;
+        }
+
+        .panel-action {
+            margin-top: 20px;
+            padding-top: 18px;
+            border-top: 1px solid var(--border);
+            font-size: var(--body-sm);
+            color: var(--accent);
+            font-weight: 500;
+        }
+
+        ul.clean {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        ul.clean li {
+            position: relative;
+            padding-left: 24px;
+            font-size: var(--body-size);
+            line-height: 1.55;
+        }
+
+        ul.clean.sm li {
+            font-size: var(--body-sm);
+            gap: 12px;
+        }
+
+        ul.clean li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0.68em;
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+            background: var(--accent-soft);
+        }
+
+        ol.steps {
+            list-style: none;
+            counter-reset: step;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        ol.steps li {
+            counter-increment: step;
+            position: relative;
+            padding-left: 64px;
+            font-size: var(--body-size);
+            line-height: 1.55;
+        }
+
+        ol.steps li::before {
+            content: counter(step, decimal-leading-zero);
+            position: absolute;
+            left: 0;
+            top: 0.1em;
+            font-family: var(--font-display);
+            font-size: 30px;
+            font-weight: 500;
+            color: var(--accent);
+        }
+
+        ol.steps li strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .quote {
+            font-family: var(--font-display);
+            font-size: 42px;
+            font-weight: 500;
+            line-height: 1.35;
+            color: var(--text-primary);
+            max-width: 34ch;
+            padding-left: 32px;
+            border-left: 4px solid var(--accent);
+            margin-bottom: 40px;
+        }
+
+        .quote em {
+            font-style: normal;
+            color: var(--accent);
+        }
+
+        .flow-track {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 20px;
+            width: 100%;
+            position: relative;
+            padding-top: 8px;
+        }
+
+        .flow-track.cols-4 {
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        .flow-track::before {
+            content: '';
+            position: absolute;
+            top: 36px;
+            left: 10%;
+            right: 10%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent-soft) 8%, var(--accent-soft) 92%, transparent);
+            opacity: 0.55;
+        }
+
+        .flow-step {
+            position: relative;
+            text-align: center;
+            padding: 0 8px;
+        }
+
+        .step-num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 56px;
+            height: 56px;
+            margin-bottom: 20px;
+            border-radius: 50%;
+            background: var(--bg-panel);
+            border: 2px solid rgba(196, 147, 90, 0.45);
+            font-family: var(--font-display);
+            font-size: 22px;
+            font-weight: 500;
+            color: var(--accent);
+        }
+
+        .flow-step strong {
+            display: block;
+            font-family: var(--font-display);
+            font-size: 32px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+            line-height: 1.1;
+        }
+
+        .flow-step .step-desc {
+            display: block;
+            font-size: var(--body-sm);
+            color: var(--text-muted);
+            line-height: 1.48;
+        }
+
+        .tag {
+            display: inline-block;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 5px 10px;
+            border-radius: 6px;
+            margin-bottom: 12px;
+        }
+
+        .tag.verified { background: rgba(143, 107, 66, 0.12); color: var(--warm); }
+        .tag.inferred { background: var(--accent-dim); color: var(--accent); }
+        .tag.unverified { background: var(--danger-dim); color: var(--danger); }
+
+        table.evidence {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+            font-size: var(--body-sm);
+        }
+
+        table.evidence th,
+        table.evidence td {
+            text-align: left;
+            padding: 13px 0;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+        }
+
+        table.evidence td:last-child {
+            color: var(--text-secondary);
+            line-height: 1.48;
+            padding-left: 16px;
+        }
+
+        table.evidence td:first-child {
+            color: var(--text-primary);
+            font-weight: 500;
+            white-space: nowrap;
+            padding-right: 14px;
+        }
+
+        table.evidence th {
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 15px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding-bottom: 11px;
+        }
+
+        .tool-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 18px;
+            width: 100%;
+        }
+
+        .tool-grid.cols-3 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .tool-card {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 22px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .tool-card .id {
+            font-family: var(--font-display);
+            font-size: 26px;
+            font-weight: 500;
+            color: var(--accent);
+            line-height: 1;
+        }
+
+        .tool-card.green .id { color: var(--green); }
+        .tool-card.ink .id { color: var(--ink); }
+        .tool-card.warm .id { color: var(--warm); }
+
+        .tool-card p {
+            font-size: 22px;
+            line-height: 1.45;
+            color: var(--text-secondary);
+        }
+
+        .doc-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            width: 100%;
+        }
+
+        .doc-item {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            padding: 22px 24px;
+            border-radius: 10px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+        }
+
+        .doc-num {
+            font-family: var(--font-display);
+            font-size: 24px;
+            font-weight: 500;
+            color: var(--accent-soft);
+            min-width: 52px;
+            flex-shrink: 0;
+        }
+
+        .doc-item strong {
+            display: block;
+            font-size: var(--body-size);
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            line-height: 1.3;
+        }
+
+        .doc-item span {
+            font-size: var(--body-sm);
+            color: var(--text-muted);
+            line-height: 1.45;
+        }
+
+        .code-block {
+            font-family: var(--font-mono);
+            font-size: 21px;
+            line-height: 1.7;
+            background: var(--bg-code);
+            border: 1px solid var(--border-strong);
+            border-radius: 10px;
+            padding: 28px 32px;
+            color: var(--text-primary);
+            white-space: pre;
+            overflow: hidden;
+        }
+
+        .code-block .cm { color: var(--text-muted); }
+        .code-block .k { color: var(--accent); }
+
+        .artifact-flow {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 18px;
+            width: 100%;
+        }
+
+        .artifact {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 22px 24px;
+        }
+
+        .artifact strong {
+            display: block;
+            font-family: var(--font-mono);
+            font-size: 22px;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .artifact span {
+            display: block;
+            font-size: 21px;
+            line-height: 1.42;
+            color: var(--text-muted);
+        }
+
+        .artifact.hot { border-left: 4px solid var(--accent); }
+        .artifact.entry { border-left: 4px solid var(--ink); }
+        .artifact.human { border-left: 4px solid var(--green); }
+
+        .workspace-map {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 18px;
+            align-items: stretch;
+        }
+
+        .edge-card {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 28px 30px;
+            min-height: 260px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .edge-card h3 {
+            font-size: 34px;
+            margin-bottom: 12px;
+        }
+
+        .edge-card p {
+            font-size: var(--body-sm);
+            line-height: 1.48;
+        }
+
+        .edge-card .confidence {
+            margin-top: 18px;
+            font-size: 18px;
+            color: var(--text-muted);
+            padding-top: 14px;
+            border-top: 1px solid var(--border);
+        }
+
+        .skill-ladder {
+            display: grid;
+            grid-template-columns: 1.1fr 1.6fr;
+            gap: 24px;
+            align-items: stretch;
+        }
+
+        .skill-hub {
+            min-height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            text-align: center;
+            padding: 48px 44px;
+            border-radius: 14px;
+            background: #fffaf4;
+            border: 1px solid rgba(168, 90, 50, 0.26);
+            box-shadow: var(--shadow);
+        }
+
+        .skill-hub code {
+            font-family: var(--font-mono);
+            font-size: 30px;
+            color: var(--accent);
+        }
+
+        .skill-hub p {
+            margin-top: 18px;
+            font-size: var(--body-sm);
+            line-height: 1.48;
+        }
+
+        .skill-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .skill-item {
+            padding: 20px 22px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--bg-panel);
+        }
+
+        .skill-item code {
+            font-family: var(--font-mono);
+            font-size: 20px;
+            color: var(--text-primary);
+        }
+
+        .skill-item p {
+            margin-top: 8px;
+            font-size: 20px;
+            line-height: 1.38;
+            color: var(--text-muted);
+        }
+
+        .phase-band {
+            display: grid;
+            grid-template-columns: 1.3fr 1fr 1fr;
+            gap: 16px;
+            width: 100%;
+            margin-bottom: 28px;
+        }
+
+        .phase {
+            padding: 24px 28px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--bg-panel);
+        }
+
+        .phase.focus {
+            border-color: rgba(168, 90, 50, 0.35);
+            background: #fffaf4;
+            box-shadow: 0 0 0 1px rgba(168, 90, 50, 0.1) inset;
+        }
+
+        .phase strong {
+            display: block;
+            font-family: var(--font-display);
+            font-size: 28px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+        }
+
+        .phase span {
+            font-size: 21px;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .phase.focus strong { color: var(--accent); }
+
+        .layer-block {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            width: 100%;
+        }
+
+        .layer-row {
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            gap: 18px;
+            align-items: stretch;
+        }
+
+        .layer-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-display);
+            font-size: 24px;
+            font-weight: 500;
+            color: var(--warm);
+            background: var(--warm-dim);
+            border: 1px solid rgba(143, 107, 66, 0.2);
+            border-radius: 10px;
+            text-align: center;
+            line-height: 1.3;
+            padding: 12px;
+        }
+
+        .layer-tools {
+            display: grid;
+            gap: 14px;
+        }
+
+        .layer-tools.c4 { grid-template-columns: repeat(4, 1fr); }
+        .layer-tools.c2 { grid-template-columns: repeat(2, 1fr); }
+        .layer-tools.c1 { grid-template-columns: 1fr; }
+
+        .layer-tools .tool-card {
+            padding: 16px 18px;
+            gap: 4px;
+        }
+
+        .layer-tools .tool-card .id { font-size: 22px; }
+        .layer-tools .tool-card p { font-size: 20px; line-height: 1.4; }
+
+        .closing-links a {
+            color: var(--accent);
+            text-decoration: none;
+            border-bottom: 1px solid rgba(168, 90, 50, 0.35);
+        }
+
+        .closing-links a:hover {
+            color: var(--warm);
+            border-bottom-color: var(--warm);
+        }
+
+        @media print {
+            html, body { width: 1920px; height: auto; overflow: visible; background: #fff; }
+            .deck-viewport { position: static; overflow: visible; background: #fff; }
+            .deck-stage { position: static; width: auto; height: auto; transform: none !important; background: none; }
+            .slide {
+                position: relative;
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
+                width: 1920px;
+                height: 1080px;
+                break-after: page;
+                page-break-after: always;
+            }
+            .deck-controls { display: none !important; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.2s !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="deck-viewport">
+        <main class="deck-stage" id="deckStage">
+
+            <!-- P1: 封面 -->
+            <section class="slide title-slide grid-bg active">
+                <div class="slide-inner">
+                    <p class="eyebrow reveal">Codebase Analysis Methodology</p>
+                    <h1 class="reveal"><span>存量大型<br>代码库分析</span>方法论</h1>
+                    <p class="subtitle reveal">给重构牵头人的作战手册——证据驱动，从 logs-only 到可执行的重构提案</p>
+                    <div class="badge-row reveal">
+                        <span class="badge">建图 · 证据 · 决策 · 梳理 · 执行 · 工具箱</span>
+                        <span class="badge">makotogu/codebase-analysis-methodology</span>
+                    </div>
+                    <p class="meta reveal">← → 或空格翻页 · 36 页工具包版</p>
+                </div>
+            </section>
+
+            <!-- P2: 目录页 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">阅读路线</p>
+                        <h2 class="reveal">这套 slides 要讲清楚什么</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="doc-list reveal">
+                            <div class="doc-item"><span class="doc-num">01</span><div><strong>先定义问题</strong><span>为什么漫游式读代码和 AI 总结都会失败</span></div></div>
+                            <div class="doc-item"><span class="doc-num">02</span><div><strong>建立地图</strong><span>静态骨架、运行时加权、logs-only 状态下怎么启动</span></div></div>
+                            <div class="doc-item"><span class="doc-num">03</span><div><strong>控制证据质量</strong><span>代码事实与业务语义分成两条证据轴</span></div></div>
+                            <div class="doc-item"><span class="doc-num">04</span><div><strong>做重构决策</strong><span>用热点、co-change、业务演进方向决定哪里值得改</span></div></div>
+                            <div class="doc-item"><span class="doc-num">05</span><div><strong>进入梳理阶段</strong><span>把理解任务改造成分类任务：标签、仲裁、燃尽、棘轮</span></div></div>
+                            <div class="doc-item"><span class="doc-num">06</span><div><strong>落到工具包</strong><span>T1–T8、templates、Agent skills、多仓库工作区与第一周行动</span></div></div>
+                        </div>
+                        <p class="slide-footnote reveal">目标不是读完后“觉得方法论不错”，而是知道接手一个陌生系统时，第一张表、第一条命令、第一份访谈问题清单应该怎么产生。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P3: 你的处境 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">开场</p>
+                        <h2 class="reveal">你的处境：接手一个没人说得清的系统</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel compact reveal">
+                                <h3>文档缺失或过期</h3>
+                                <p>仅有的架构图是三年前画的，从画完那一刻就开始腐烂。没人敢保证它和当前代码一致。</p>
+                            </div>
+                            <div class="panel compact reveal">
+                                <h3>命名和业务对不上</h3>
+                                <p><code style="font-family:var(--font-mono);font-size:0.85em">SettleService</code> 实际干的是对账，真正的结算在 <code style="font-family:var(--font-mono);font-size:0.85em">ClearingJob</code>。命名漂移、历史包袱、口头约定俯拾皆是。</p>
+                            </div>
+                            <div class="panel compact reveal">
+                                <h3>只有分散日志</h3>
+                                <p>没有 tracing、没有统一指标。运行时真相散落在各服务的日志文件里，没有一个地方能看到完整调用链。</p>
+                            </div>
+                            <div class="panel compact reveal">
+                                <h3>测试不足，没人敢改</h3>
+                                <p>核心模块只有一两个老人敢动。直接重构等于裸奔，而"先补齐测试"又遥遥无期。</p>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">这不是个别现象，是存量系统的<strong>常态</strong>。方法论的前提就是接受这个常态——而不是先花一个季度"补基建"再开始分析。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P3: 两大失败模式 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">开场</p>
+                        <h2 class="reveal">先认清两种注定失败的打法</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel danger reveal">
+                                <h3>漫游式阅读</h3>
+                                <p>从随机文件点进去，深度优先陷进细节，一周后什么也没沉淀。大型代码库 80% 的代码和你当前关心的问题无关——<strong style="color:var(--text-primary)">没有地图的阅读注定迷路</strong>。</p>
+                                <p class="panel-action">对抗手段：建图</p>
+                            </div>
+                            <div class="panel danger reveal">
+                                <h3>AI 幻觉式总结</h3>
+                                <p>让 LLM 概括架构，得到一份看似合理但没有任何文件路径支撑的文档。AI 会顺着命名编故事，而存量系统的命名恰恰经常和业务实际对不上。</p>
+                                <p class="panel-action">对抗手段：证据等级</p>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">给牵头人的警示：你的团队成员和你自己都会<strong>自然滑向</strong>这两种模式。方法论的作用不是提供聪明技巧，而是提供纪律。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P4: 证据驱动的循环 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">总纲</p>
+                        <h2 class="reveal">总框架：证据驱动的循环</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="flow-track reveal">
+                            <div class="flow-step"><span class="step-num">01</span><strong>建图</strong><span class="step-desc">静态骨架<br>+ 运行时加权</span></div>
+                            <div class="flow-step"><span class="step-num">02</span><strong>验证</strong><span class="step-desc">日志 / 断点<br>真实输出校准</span></div>
+                            <div class="flow-step"><span class="step-num">03</span><strong>评估</strong><span class="step-desc">热点与痛点<br>变更耦合分析</span></div>
+                            <div class="flow-step"><span class="step-num">04</span><strong>决策</strong><span class="step-desc">重构方向<br>变更 × 业务演进</span></div>
+                            <div class="flow-step"><span class="step-num">05</span><strong>执行</strong><span class="step-desc">绞杀者模式<br>小步安全替换</span></div>
+                        </div>
+                        <p class="slide-footnote reveal"><strong>这是循环，不是瀑布</strong>——执行中发现的新事实回流地图。知识沉淀（notes / glossary / rules）贯穿全程：Agent 没有记忆，笔记是下一轮分析的上下文，是一等公民而非副产品。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P5: 五条原则 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">总纲</p>
+                        <h2 class="reveal">五条不可妥协的原则</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="doc-list reveal">
+                            <div class="doc-item"><span class="doc-num">1</span><div><strong>证据驱动</strong><span>无 file:line 支撑的论断一律视为假设，禁止进入结论</span></div></div>
+                            <div class="doc-item"><span class="doc-num">2</span><div><strong>笔记是一等公民</strong><span>地图、术语表、追踪记录是方法论的核心资产</span></div></div>
+                            <div class="doc-item"><span class="doc-num">3</span><div><strong>以流为锚点</strong><span>围绕端到端可观察旅程组织阅读，不以文件为锚点</span></div></div>
+                            <div class="doc-item"><span class="doc-num">4</span><div><strong>先榨干已有信号</strong><span>存量日志与 git 历史优先于补埋点</span></div></div>
+                            <div class="doc-item" style="grid-column: span 2;"><span class="doc-num">5</span><div><strong>确定性优先</strong><span>采集和分析用 parser 与 git 挖掘；LLM 只做归因、摘要、错位探测这些模糊任务，且必须回填路径证据</span></div></div>
+                        </div>
+                        <p class="slide-footnote reveal">第 5 条的深层含义：<strong>采集+分析层不依赖 LLM 也能跑</strong>——LLM 坏了、贵了，不影响数据积累；只有综合层是 LLM 密集的。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P6: 建图哲学 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第一部分 · 建图</p>
+                        <h2 class="reveal">没有流量数据的地图是瞎的</h2>
+                    </div>
+                    <div class="slide-body">
+                        <p class="quote reveal">没有流量数据的代码地图就像没有车流量的街道图——<em>结构对了，但优先级是瞎的</em>。</p>
+                        <div class="three-col">
+                            <div class="panel compact reveal">
+                                <h3>模块边界图</h3>
+                                <p>每个仓库/模块的用途、语言、构建系统、上下游。多仓库先画仓库间边界。</p>
+                            </div>
+                            <div class="panel compact reveal">
+                                <h3>关键目录图</h3>
+                                <p>每模块 ≤10 个重要目录。生成代码、vendored 依赖、构建产物提前过滤。</p>
+                            </div>
+                            <div class="panel accent compact reveal">
+                                <h3>端到端旅程图</h3>
+                                <p>一条可观察请求从入口到出口。<strong style="color:var(--text-primary)">以流为锚点</strong>：旅程的主路径有限，无关的 80% 自然被排除。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P7: 先榨干已有信号 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第一部分 · 建图</p>
+                        <h2 class="reveal">先榨干已有信号，再谈补埋点</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel reveal">
+                                <h3>五类躺着的数据，不改一行业务代码</h3>
+                                <ul class="clean sm">
+                                    <li>网关 / access log — 哪些接口真的有量</li>
+                                    <li>APM trace（如果有）— 真实调用链</li>
+                                    <li>error 日志密集处 — 直接当<strong style="color:var(--text-primary)">缺陷密度</strong>的代理指标</li>
+                                    <li>DB 慢查询日志 — 数据访问的热点和痛点</li>
+                                    <li>异常堆栈聚合 — 高频故障路径</li>
+                                </ul>
+                            </div>
+                            <div class="panel warm reveal">
+                                <h3>被低估的手段：生产覆盖率</h3>
+                                <p>采样式 profiler（JFR / async-profiler / eBPF）在生产跑一两个月，直接得到"哪些代码真的被执行"。</p>
+                                <p style="margin-top:16px">副产品极有价值：<strong style="color:var(--text-primary)">连续几个月从未执行的代码就是死代码候选</strong>。删死代码是 ROI 最高的重构——先把地图上不存在的街道擦掉，剩下的图才好看。</p>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">这些数据足以回答：<strong>哪 20% 的代码承载了 95% 的流量</strong>。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P8: 后台任务 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第一部分 · 建图</p>
+                        <h2 class="reveal">后台任务：比用户链路更好处理</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel accent reveal">
+                                <h3>第一步 · 静态建触发源清单</h3>
+                                <p>定时任务一定注册在某处：crontab、<code style="font-family:var(--font-mono);font-size:0.85em">@Scheduled</code>、xxl-job、k8s CronJob；MQ 消费一定有 topic 订阅。全部可 grep、可解析。</p>
+                                <p style="margin-top:14px">产出：触发源 → 入口函数（file:line）→ 声称用途。这张表是<strong style="color:var(--text-primary)">完备的</strong>——注册机制就那么几种。</p>
+                            </div>
+                            <div class="panel reveal">
+                                <h3>第二步 · 分发点插桩一次</h3>
+                                <p>不给每个任务埋点。定时框架和 MQ 消费收口在一两个框架边界（调度 dispatch、consumer 基类）。</p>
+                                <p style="margin-top:14px">在这一个点加结构化日志，一次性拿到<strong style="color:var(--text-primary)">所有</strong>任务的执行频率、耗时、失败率。</p>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">这比给用户链路补埋点便宜<strong>一个数量级</strong>。有了"完备清单 + 执行权重"，后台地图往往比前台先完成。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P9: logs-only 四步走 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第一部分 · 建图</p>
+                        <h2 class="reveal">logs-only 状态的四步走</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="flow-track cols-4 reveal">
+                            <div class="flow-step"><span class="step-num">01</span><strong>日志普查</strong><span class="step-desc">纯静态扫描日志语句<br>业务 ID 当穷人版 trace ID</span></div>
+                            <div class="flow-step"><span class="step-num">02</span><strong>入口普查</strong><span class="step-desc">HTTP 路由表<br>+ 后台触发源清单</span></div>
+                            <div class="flow-step"><span class="step-num">03</span><strong>收口点插桩</strong><span class="step-desc">全系统只有 3–5 个收口点<br>filter / 拦截器 / 分发点</span></div>
+                            <div class="flow-step"><span class="step-num">04</span><strong>可达性传播</strong><span class="step-desc">入口权重沿静态调用图下传<br>合成模块热力图</span></div>
+                        </div>
+                        <p class="slide-footnote reveal"><strong>不要为了分析先建全链路 tracing</strong>——那是季度级工程，会把分析卡死；这套办法成本是天级的。传播误差大的地方（分支、动态分发）恰恰是人工重点验证清单——又回到证据等级体系。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P10: 双轴证据 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第二部分 · 证据体系</p>
+                        <h2 class="reveal">双轴证据：AI 能验证什么，不能验证什么</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel reveal">
+                                <h3>代码轴（AI 可自主推进）</h3>
+                                <table class="evidence">
+                                    <tr><th>等级</th><th>含义</th></tr>
+                                    <tr><td><span class="tag verified">verified</span></td><td>本地文件或命令确认，附 file:line</td></tr>
+                                    <tr><td><span class="tag inferred">inferred</span></td><td>从命名/结构/惯例推断，无直接证据</td></tr>
+                                    <tr><td><span class="tag unverified">unverified</span></td><td>需构建/运行/源码追踪验证</td></tr>
+                                </table>
+                            </div>
+                            <div class="panel warm reveal">
+                                <h3>业务轴（只能由人推进）</h3>
+                                <p><span class="tag inferred">business-confirmed</span> 必须具名、带日期："据张三，2026-07"——业务理解会过时，来源和时间让它可审计、可更新。</p>
+                                <p style="margin-top:16px">AI 可以确认"函数 X 写了表 A"，但"表 A 是不是业务上的结算流水"<strong style="color:var(--text-primary)">只能由人确认</strong>。两轴正交，分别推进。</p>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">牵头人的红线：<strong>重构决策只允许建立在 verified + business-confirmed 的论断之上</strong>，其余论断先补证据。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P11: glossary -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第二部分 · 证据体系</p>
+                        <h2 class="reveal">glossary：复利的长期资产</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="reveal"><div class="code-block"><span class="cm"># glossary.yaml</span>
+- <span class="k">code_term:</span> SettleService
+  <span class="k">business_meaning:</span> 实际处理的是对账，不是结算；
+    真正的结算在 ClearingJob
+  <span class="k">owner:</span> 张三
+  <span class="k">confirmed_by:</span> 张三
+  <span class="k">confirmed_date:</span> 2026-07
+  <span class="k">evidence:</span> src/main/java/.../SettleService.java</div></div>
+                            <div class="panel reveal">
+                                <h3>三条使用纪律</h3>
+                                <ul class="clean sm">
+                                    <li>glossary 是<strong style="color:var(--text-primary)">人工段</strong>，机器重跑任何分析都不得覆盖</li>
+                                    <li>每次 Agent 会话开始时注入，让 AI 在已澄清的术语上不再犯错</li>
+                                    <li>访谈产出的每个澄清都回填 glossary，而不是散落在聊天记录里</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">它是<strong>复利的</strong>：每澄清一个术语，之后所有分析都受益。这是牵头人应该最早建立的资产之一。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P12: 错位探测器 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第二部分 · 证据体系</p>
+                        <h2 class="reveal">AI 角色反转：从解释者到错位探测器</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel danger reveal">
+                                <h3>四类要找的错位模式</h3>
+                                <ul class="clean sm">
+                                    <li>名为 query 却有写操作、名为 validate 却顺手改状态</li>
+                                    <li>注释说的分支条件和实际代码不一致</li>
+                                    <li>名为 X 却顺手干了 Y（职责溢出）</li>
+                                    <li>同一个业务词在不同模块指不同东西（术语冲突）</li>
+                                </ul>
+                            </div>
+                            <div class="panel accent reveal">
+                                <h3>闭环工作流</h3>
+                                <ol class="steps" style="gap:12px">
+                                    <li style="font-size:var(--body-sm)">只跑<strong>热点模块</strong>（控制成本），AI 标记疑似错位</li>
+                                    <li style="font-size:var(--body-sm)">产出<strong>访谈问题清单</strong>——不是结论</li>
+                                    <li style="font-size:var(--body-sm)">人工访谈领域专家，回答高价值问题</li>
+                                    <li style="font-size:var(--body-sm)">回填 glossary，注入后续所有会话</li>
+                                </ol>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">不要问 AI"这段代码的业务含义是什么"——它只会顺着命名编。人的介入从逐行陪读变成<strong>聚焦、高杠杆的仲裁</strong>：每个回答都让后续 AI 分析更准。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P13: 热点分析 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第三部分 · 重构决策</p>
+                        <h2 class="reveal">热点分析是第一优先级</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel reveal">
+                                <h3>变更频率 × 复杂度排序</h3>
+                                <ul class="clean sm">
+                                    <li>复杂但三年没人动的模块 → 重构它<strong style="color:var(--danger)">几乎是纯浪费</strong></li>
+                                    <li>每周都改、每次改都出 bug 的 500 行函数 → <strong style="color:var(--accent)">这才是真目标</strong></li>
+                                </ul>
+                                <p class="panel-action">叠加信号提精度：缺陷密度（error 聚合）+ 运行时热力图</p>
+                            </div>
+                            <div class="panel accent reveal">
+                                <h3>AI 的角色：归因分析</h3>
+                                <p>"为什么这里频繁变更？"</p>
+                                <ul class="clean sm" style="margin-top:14px">
+                                    <li>需求本身多变 → <strong style="color:var(--text-primary)">不该动</strong></li>
+                                    <li>抽象切错了，每个需求都要动它 → <strong style="color:var(--text-primary)">重构目标</strong></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">核心主张：<strong>重构方向不是从代码里读出来的，是从"变更历史 × 业务演进方向"里算出来的</strong>。"让代码更干净"不能作为立项理由。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P14: 变更轴线 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第三部分 · 重构决策</p>
+                        <h2 class="reveal">抽象方向由变更轴线决定，不由品味决定</h2>
+                    </div>
+                    <div class="slide-body">
+                        <p class="quote reveal" style="font-size:36px">哪些需求会一起来，哪些代码就应该被一起改到；<em>如果现状做不到，说明抽象切错了方向</em>。</p>
+                        <div class="three-col">
+                            <div class="panel compact reveal">
+                                <h3>找被切碎的概念</h3>
+                                <p>相距很远的文件总在同一 commit 被改 → 隐含概念被切碎，应收拢到一起。</p>
+                            </div>
+                            <div class="panel compact reveal">
+                                <h3>找多轴线巨型模块</h3>
+                                <p>一个文件在毫不相关的需求里都被改（典型如巨型 service）→ 承担多个变更轴线，应拆。</p>
+                            </div>
+                            <div class="panel danger compact reveal">
+                                <h3>不为假设的未来抽象</h3>
+                                <p>依据必须是<strong style="color:var(--text-primary)">已发生 ≥2–3 次</strong>的变更模式。存量系统最贵的债，往往是当年为不存在的未来做的抽象。</p>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">方法论立场：<strong>自底向上为主</strong>——AI 只出候选，人做裁决；目标架构可作远景参考，但每一步重构的立项依据必须是已发生的变更证据。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P15: 指标与门槛 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第三部分 · 重构决策</p>
+                        <h2 class="reveal">目标挂指标，提案有门槛</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel reveal">
+                                <h3>四类可用指标</h3>
+                                <table class="evidence">
+                                    <tr><th>类别</th><th>指标示例（数据来源）</th></tr>
+                                    <tr><td>交付</td><td>某类需求平均改动文件数、lead time（git + 需求系统）</td></tr>
+                                    <tr><td>质量</td><td>热点模块缺陷密度、回归率（error 聚合、bug 系统）</td></tr>
+                                    <tr><td>认知</td><td>新人上手时间；知识孤岛模块数（git 作者分布）</td></tr>
+                                    <tr><td>架构</td><td>依赖规则违反数（依赖图 + 适应度函数）</td></tr>
+                                </table>
+                            </div>
+                            <div class="panel warm reveal">
+                                <h3>提案最低证据门槛</h3>
+                                <ol class="steps" style="gap:14px">
+                                    <li style="font-size:var(--body-sm)">热点/耦合数据 —— <strong>verified</strong></li>
+                                    <li style="font-size:var(--body-sm)">业务含义确认 —— <strong>business-confirmed</strong></li>
+                                    <li style="font-size:var(--body-sm)">收益假设 —— <strong>明确写出赌的是哪个指标</strong></li>
+                                </ol>
+                                <p class="panel-action">三者缺一，提案退回补证据</p>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal"><strong>知识孤岛</strong>值得单独盯：git 作者分布可直接算 bus factor。热点 × 孤岛 = 双重风险——既频繁变更，又只有一个人能改。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P16: 梳理即分类 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第四部分 · 梳理阶段</p>
+                        <h2 class="reveal">梳理不是理解任务，而是分类任务</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel accent reveal">
+                                <h3>Shopify 的做法</h3>
+                                <p>把 <strong style="color:var(--text-primary)">6000 个 Ruby 类列进一张大表格，人工逐个标注归属组件</strong>（orders / shipping / billing…）。</p>
+                                <p style="margin-top:14px">不需要读懂每个类的实现，只需回答"它属于哪个业务概念"。难度从不可能变成可管理：有<strong style="color:var(--text-primary)">分母</strong>（进度可算）、可<strong style="color:var(--text-primary)">并行</strong>、有<strong style="color:var(--text-primary)">完成态</strong>。</p>
+                            </div>
+                            <div class="panel reveal">
+                                <h3>AI 改变了成本结构</h3>
+                                <ul class="clean sm">
+                                    <li>LLM 批量提议标签，每条附<strong style="color:var(--text-primary)">置信度 + 证据</strong>（调用了谁、操作哪些表）</li>
+                                    <li>人只仲裁低置信度和有争议的部分</li>
+                                    <li>T1 co-change 做<strong style="color:var(--text-primary)">标签一致性校验</strong>：总一起变更的文件应同标签，违反处要么标错、要么是真实架构问题</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">前置条件：先立<strong>标签体系</strong>——目标组件来自业务概念（订单/运费/计费）而非技术层次（MVC），由领域干系人共同给出，控制在几十个以内。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P17: 先止血 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第四部分 · 梳理阶段</p>
+                        <h2 class="reveal">先止血，再梳理（Slack Project Duplo）</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="phase-band reveal">
+                            <div class="phase focus"><strong>Stabilize</strong><span>六个月，只干两件事</span></div>
+                            <div class="phase"><strong>Modularize</strong><span>组件化、边界划分</span></div>
+                            <div class="phase"><strong>Modernize</strong><span>技术栈现代化</span></div>
+                        </div>
+                        <div class="two-col">
+                            <div class="panel compact reveal">
+                                <h3>终结所有半途而废的迁移</h3>
+                                <p>Objective-C → Swift、直连 CoreData → 数据访问库……能收尾的收尾，不能收尾的至少<strong style="color:var(--text-primary)">冻结</strong>（禁止新代码使用旧模式）。</p>
+                            </div>
+                            <div class="panel compact reveal">
+                                <h3>N 种写法收敛成一种</h3>
+                                <p>"Instead of multiple ways to do the same thing, we had a single correct way." 同一件事三种写法，一切扫描、归类、分析的成本都要<strong style="color:var(--text-primary)">乘三</strong>。</p>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal"><strong>一致性是梳理的前提条件，不是梳理的结果</strong>。stalled migration 是隐形的分析税。另一层价值：Stabilization 先出成果，向组织证明项目能成，为后面更有野心的阶段挣到持续投入。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P18: 物理归位 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第四部分 · 梳理阶段</p>
+                        <h2 class="reveal">先归类让耦合暴露，而不是先解耦（Shopify）</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel accent reveal">
+                                <h3>big-bang PR：纯文件移动</h3>
+                                <p>Shopify 做的第一件事不是解依赖，而是一次性把全部文件按业务概念重排目录——<strong style="color:var(--text-primary)">零逻辑改动、自动化脚本生成</strong>，完备测试套件兜底。</p>
+                                <p style="margin-top:14px">目的只有一个：归类之后，跨组件调用从"看不见"变成<strong style="color:var(--text-primary)">"扎眼"</strong>。耦合可见了，解耦才有靶子。</p>
+                            </div>
+                            <div class="panel danger reveal">
+                                <h3>代价（他们如实记录了）</h3>
+                                <p>git 历史被文件移动打断——GitHub 把 rename 当成删除 + 新建。</p>
+                                <p style="margin-top:14px">这正好印证 T1 git 挖掘的坑：必须用 <code style="font-family:var(--font-mono);font-size:0.85em">--follow</code> 或等价机制跨越这类大迁移，否则改名文件的历史断裂。</p>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">梳理难的一大原因是<strong>耦合不可见</strong>。物理归位是最便宜的可见化手段——先让代码的"住址"反映业务归属。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P19: 燃尽与棘轮 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第四部分 · 梳理阶段</p>
+                        <h2 class="reveal">燃尽图与棘轮：把梳理变成可问责的进展</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel reveal">
+                                <h3>度量：两家共同做法</h3>
+                                <ul class="clean sm">
+                                    <li><strong style="color:var(--text-primary)">Slack</strong>：自动脚本数"剩余废弃模式数量"，配 dashboard 和 deadline，落后就重新调配资源</li>
+                                    <li><strong style="color:var(--text-primary)">Shopify Wedge</strong>：每组件算隔离得分、列违规清单（跨组件非公开 API 调用、跨组件继承），看趋势</li>
+                                    <li>度量脚本是 grep 级工作量，但把"感觉上的进展"变成<strong style="color:var(--text-primary)">可问责的进展</strong></li>
+                                </ul>
+                            </div>
+                            <div class="panel warm reveal">
+                                <h3>治理：三个机制</h3>
+                                <ul class="clean sm">
+                                    <li><strong style="color:var(--text-primary)">专职团队</strong>——梳理不能是"大家有空时做的事"</li>
+                                    <li><strong style="color:var(--text-primary)">棘轮机制</strong>——存量违规豁免为 baseline，新增违规 CI 直接拦；违规数只许降不许升</li>
+                                    <li><strong style="color:var(--text-primary)">对上用数据拿授权</strong>——见下方三件套</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">Slack 给管理层的提案三件套：(1) 数据支撑的痛点 (2) 进度度量方案 (3) <strong>各阶段失效模式预判</strong>——最少见也最值钱：把"项目可能烂尾"从隐忧变成被管理的对象。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P20: 表征测试+绞杀者 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第五部分 · 执行</p>
+                        <h2 class="reveal">表征测试 + 绞杀者模式</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="panel reveal">
+                            <ol class="steps">
+                                <li><strong>AI 批量生成表征测试</strong> —— 锁定现有行为：不管行为对不对，先如实记录。写"记录现状"的测试人类觉得枯燥，AI 做得又快又好，这是 AI 杠杆最高的场景之一</li>
+                                <li><strong>绞杀者模式小步替换</strong> —— 新实现在旁边生长，流量逐步切换，旧代码逐步枯萎，任何一步都可回退</li>
+                                <li><strong>可观测性随重构增量生长</strong> —— 替换某条链路时顺手把 tracing/指标埋进新代码，而不是重构前先做可观测性大工程</li>
+                                <li><strong>适应度函数守住成果</strong> —— 重构方向确定后，把目标写成可执行断言进 CI，防止回退</li>
+                            </ol>
+                        </div>
+                        <p class="slide-footnote reveal">存量代码库大概率测试不足，<strong>直接改等于裸奔</strong>。执行永远走这个套路。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P21: 适应度函数 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第五部分 · 执行</p>
+                        <h2 class="reveal">适应度函数：把重构目标写成 CI 断言</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="three-col">
+                            <div class="panel compact reveal">
+                                <h3>依赖规则</h3>
+                                <p>"domain 层不得 import infra 层"——写成可执行断言，违反即 CI 失败。</p>
+                            </div>
+                            <div class="panel compact reveal">
+                                <h3>模块体积上限</h3>
+                                <p>巨型 service 拆完后设体积红线，防止悄悄长回去。</p>
+                            </div>
+                            <div class="panel compact reveal">
+                                <h3>热点分回归检查</h3>
+                                <p>重构目标挂的指标（如某模块热点分）纳入趋势监控。</p>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">时机上的重要修正：完整版最后做，但它的<strong>棘轮版本应该在梳理期就提前上线</strong>——存量违规先豁免为 baseline，新增违规直接拦，不等重构方向定了才上。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P22: 工具箱四层 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第六部分 · 工具箱</p>
+                        <h2 class="reveal">T1–T8：四层架构</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="layer-block reveal">
+                            <div class="layer-row">
+                                <div class="layer-label">采集层</div>
+                                <div class="layer-tools c4">
+                                    <div class="tool-card"><span class="id">T1</span><p>git-miner<br>热点/耦合/孤岛</p></div>
+                                    <div class="tool-card"><span class="id">T2</span><p>entry-census<br>入口普查 +2.5表映射 +2.6跨服务</p></div>
+                                    <div class="tool-card"><span class="id">T3</span><p>log-census<br>日志普查+error聚合</p></div>
+                                    <div class="tool-card"><span class="id">T4</span><p>choke-metrics<br>收口点插桩</p></div>
+                                </div>
+                            </div>
+                            <div class="layer-row">
+                                <div class="layer-label">分析层</div>
+                                <div class="layer-tools c1">
+                                    <div class="tool-card"><span class="id">T5</span><p>reachability — 入口权重沿静态调用图传播，合成模块热力图；第一版做文件级 import 图，粗但稳健</p></div>
+                                </div>
+                            </div>
+                            <div class="layer-row">
+                                <div class="layer-label">综合层</div>
+                                <div class="layer-tools c2">
+                                    <div class="tool-card"><span class="id">T6</span><p>map-builder — 代码地图生成，每模块一张卡片</p></div>
+                                    <div class="tool-card"><span class="id">T7</span><p>glossary + 错位探测器（只跑热点模块）</p></div>
+                                </div>
+                            </div>
+                            <div class="layer-row">
+                                <div class="layer-label">守护层</div>
+                                <div class="layer-tools c1">
+                                    <div class="tool-card"><span class="id">T8</span><p>架构适应度函数 — CI 守护，防止重构成果回退</p></div>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">核心设计决策：<strong>机器段与人工段分离</strong>——机器生成的内容随时重跑覆盖，人工确认的内容（business-confirmed、glossary）用标记保护。地图才能持续再生而不丢失人的投入。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P23: 落地顺序 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第六部分 · 工具箱</p>
+                        <h2 class="reveal">落地顺序：从第一天到第一个月</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="flow-track reveal">
+                            <div class="flow-step"><span class="step-num">01</span><strong>T1</strong><span class="step-desc">零依赖、当天出结果<br>立刻回答"哪里值得看"</span></div>
+                            <div class="flow-step"><span class="step-num">02</span><strong>查 actuator</strong><span class="step-desc">T4 大头可能白捡<br>决定是否要写切面</span></div>
+                            <div class="flow-step"><span class="step-num">03</span><strong>T2 + T2.5</strong><span class="step-desc">入口普查 + 表映射<br>都是静态解析</span></div>
+                            <div class="flow-step"><span class="step-num">04</span><strong>T5 → T6</strong><span class="step-desc">热力图 + 可再生地图<br>Agent 有了标准起始上下文</span></div>
+                            <div class="flow-step"><span class="step-num">05</span><strong>T3 / T7 / T8</strong><span class="step-desc">T3、T7 并行推进<br>T8 棘轮版提前上线</span></div>
+                        </div>
+                        <p class="slide-footnote reveal">T1 的三个必须处理的坑：<strong>时间衰减</strong>（一年前的变更权重应低于上月）、<strong>巨型 commit 过滤</strong>（一次动 200 文件的格式化 commit 污染耦合分析）、<strong>rename 追踪</strong>（否则历史断裂）。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P24: Java/Spring 红利 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第六部分 · 工具箱</p>
+                        <h2 class="reveal">Java / Spring 的四个红利</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel compact reveal">
+                                <h3>actuator 对账</h3>
+                                <p><code style="font-family:var(--font-mono);font-size:0.85em">/actuator/mappings</code> 给出运行时真实路由表，和静态清单 diff：静态有运行时没有 → 死入口；运行时有静态没有 → 普查漏洞。</p>
+                            </div>
+                            <div class="panel compact reveal">
+                                <h3>Micrometer 白捡指标</h3>
+                                <p>有 actuator 则 <code style="font-family:var(--font-mono);font-size:0.85em">http.server.requests</code> 开箱即有——HTTP 入口的频率、耗时、状态码不用写一行插桩。第一步永远是查 pom 里有没有 actuator。</p>
+                            </div>
+                            <div class="panel compact reveal">
+                                <h3>死代码检测几乎免费</h3>
+                                <p><code style="font-family:var(--font-mono);font-size:0.85em">-verbose:class</code> 或 JFR 记录类加载，生产跑一两个月，从未加载的类就是死代码候选——经常能划掉两位数百分比。</p>
+                            </div>
+                            <div class="panel accent compact reveal">
+                                <h3>T2.5 表映射：数据所有权</h3>
+                                <p>MyBatis XML / JPA 注解静态可解析出"每张表被谁读谁写"。<strong style="color:var(--text-primary)">拆模块的硬约束往往不是代码依赖而是数据所有权</strong>——一张表被五个模块写，代码拆得再干净也是假拆。</p>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">静态解析用 JavaParser / tree-sitter，<strong>不需要工程能编译通过</strong>——对老旧存量工程很重要。Spring 的坑：条件装配（@Profile / @ConditionalOn）会让静态清单里的入口在生产根本不激活，所以对账必须做。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P25: 分布式与 trace -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第六部分 · 工具箱</p>
+                        <h2 class="reveal">分布式 / Dubbo 与 trace 三层决策</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel reveal">
+                                <h3>Dubbo 反直觉的好消息</h3>
+                                <ul class="clean sm">
+                                    <li>强类型接口比 HTTP 字符串 URL <strong style="color:var(--text-primary)">好分析得多</strong>：接口 FQCN+version+group 是天然 join key，纯静态拼出跨服务调用图（T2.6）</li>
+                                    <li><strong style="color:var(--text-primary)">注册中心是白捡的运行时真相</strong>：静态 join 与 ZK/Nacos dump 对账，不写插桩就把证据从 inferred 升 verified</li>
+                                    <li>跨仓库 co-change：按工单 ID 或发布窗口近似——一个需求总要同时改 A、B 两个服务，就是边界切错的铁证</li>
+                                    <li>最恶劣的耦合是<strong style="color:var(--text-primary)">共享数据库表</strong>：调用图上看似解耦，实际是假拆</li>
+                                </ul>
+                            </div>
+                            <div class="panel warm reveal">
+                                <h3>trace 三层决策</h3>
+                                <ol class="steps" style="gap:13px">
+                                    <li style="font-size:var(--body-sm)"><strong>埋点层统一 OTel 标准</strong>（最重要）——OTel Java Agent 零代码自动埋点，避免被任何一家 APM 锁死</li>
+                                    <li style="font-size:var(--body-sm)"><strong>后端看运维能力</strong>，不看功能清单——SkyWalking / Tempo / Jaeger 都够用，别在选型上花太久</li>
+                                    <li style="font-size:var(--body-sm)"><strong>tail-based sampling</strong>——错误全采、慢请求全采、正常流量低比例</li>
+                                </ol>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">立场澄清：反对的是<strong>手工全链路埋点</strong>（季度级）；自动埋点是周级成本，应尽早上。业务键进 span attributes 的手动埋点，放在重构替换链路时顺手做。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P26: 多仓库工作区 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第七部分 · 多仓库联合分析</p>
+                        <h2 class="reveal">真实系统的单位是工作区，不是仓库</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel ink reveal">
+                                <h3>第一步永远是 repos.yaml</h3>
+                                <p>前端 x 个仓库、后端 y 个仓库、BFF、lib，都先放进同一张工作区清单：name / path / kind / language / service / api_client_dirs。</p>
+                                <p style="margin-top:14px">这张表就是多仓库分析的<strong style="color:var(--text-primary)">分母</strong>。覆盖率、遗漏检查、stable ID 都从这里开始。</p>
+                            </div>
+                            <div class="panel reveal">
+                                <h3>stable ID 必须带仓库前缀</h3>
+                                <div class="code-block" style="font-size:20px;line-height:1.55;margin-top:4px"><span class="cm"># 全局唯一，不再只看单仓库路径</span>
+web-portal::src/api/order.ts
+order-service::src/main/java/.../OrderController.java
+bff-mobile::src/routes/order.ts</div>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">单仓库工具仍然照常跑；新增的是工作区级的合并视图：API 边、RPC 边、共享表边、跨仓库 co-change，以及唯一一份跨前后端 glossary。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P27: 三类跨仓库边 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第七部分 · 多仓库联合分析</p>
+                        <h2 class="reveal">三类跨仓库边，静态可得性决定打法</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="workspace-map reveal">
+                            <div class="edge-card">
+                                <div>
+                                    <h3>RPC 边</h3>
+                                    <p>后端 ↔ 后端。Dubbo 强类型接口是天然 join key：FQCN + version + group 静态 join，再与注册中心 dump 对账。</p>
+                                </div>
+                                <div class="confidence">证据上限：对账后 verified</div>
+                            </div>
+                            <div class="edge-card">
+                                <div>
+                                    <h3>API 边</h3>
+                                    <p>前端 → 后端。扫 axios/fetch/API client，路径归一化后与后端 entries.yaml 里的 HTTP 路由 join。</p>
+                                </div>
+                                <div class="confidence">match：exact / prefix / fuzzy / unmatched</div>
+                            </div>
+                            <div class="edge-card">
+                                <div>
+                                    <h3>共享表边</h3>
+                                    <p>任意 ↔ 任意。MyBatis/JPA 在所有后端仓库跑，合并成"表 × 服务"读写矩阵。</p>
+                                </div>
+                                <div class="confidence">最高优先级假拆证据</div>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">API 边最容易骗人：前端 URL 是字符串，join 必须显式标置信度。`unmatched` 不是直接结论，而是后端下线、前端漏扫、网关前缀或动态拼接的验证队列。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P28: 跨仓库 co-change -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第七部分 · 多仓库联合分析</p>
+                        <h2 class="reveal">跨仓库 co-change：工单 ID 优先，时间窗兜底</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel green reveal">
+                                <h3>高质量信号：工单 ID</h3>
+                                <p>commit message 有需求/工单号规范（如 <code style="font-family:var(--font-mono);font-size:0.85em">PAY-123</code>）时，按工单聚合跨仓库变更集。</p>
+                                <p style="margin-top:14px">一个需求总要同时改 ≥2 个<strong style="color:var(--text-primary)">后端</strong>仓库，就是服务边界切错的铁证。</p>
+                            </div>
+                            <div class="panel danger reveal">
+                                <h3>弱趋势信号：时间窗</h3>
+                                <p>完全没有工单规范时，才用"同一作者在 ±N 小时内多个仓库提交"近似。</p>
+                                <p style="margin-top:14px">噪音大，只用于仓库级趋势。不能下钻到文件级，也不能写成 verified 结论。</p>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">前端仓库与页面域对应后端长期强耦合通常是正常现象；值得警惕的是前端总和不属于它页面域的后端耦合，或多个后端仓库总被同一个工单一起改。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P29: 模板即契约 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第八部分 · 模板与工具包</p>
+                        <h2 class="reveal">templates/：把方法论变成可审计的产出物契约</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="artifact-flow reveal">
+                            <div class="artifact human"><strong>metrics-baseline.md</strong><span>开工第一周：先立构建、测试、质量、梳理进度基线</span></div>
+                            <div class="artifact human"><strong>glossary.yaml</strong><span>人工段：代码术语 ↔ 业务含义 ↔ 负责人 ↔ 确认日期</span></div>
+                            <div class="artifact entry"><strong>entries.yaml</strong><span>T2 入口骨架：entry_id、类型、file:line、runtime_status</span></div>
+                            <div class="artifact hot"><strong>interview-questions.md</strong><span>T7 输出：把错位探测转成可回答的问题，而不是结论</span></div>
+                            <div class="artifact entry"><strong>trace-record.md</strong><span>验证记录：真实调试、日志插桩、源码推演分级</span></div>
+                            <div class="artifact human"><strong>labels.yaml</strong><span>梳理启动前：业务概念标签体系，由干系人确认</span></div>
+                            <div class="artifact hot"><strong>asset-inventory.csv</strong><span>全量分类标注：机器提议 + 人工仲裁 + 燃尽度量</span></div>
+                            <div class="artifact entry"><strong>module-card.md</strong><span>T6 地图卡片：机器段与人工段分离，可重跑可 review</span></div>
+                            <div class="artifact hot"><strong>refactor-proposal.md</strong><span>立项时：热点/耦合、业务确认、收益假设三道门槛</span></div>
+                        </div>
+                        <p class="slide-footnote reveal">模板的价值不是格式漂亮，而是把"哪些字段机器可覆盖、哪些字段只能人写"固定下来。否则 Agent 每次重跑都会把人的投入冲掉。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P30: 新增多仓库模板 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第八部分 · 模板与工具包</p>
+                        <h2 class="reveal">多仓库追加两个模板：分母与前后端边</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel ink reveal">
+                                <h3>repos.yaml</h3>
+                                <p>工作区清单，定义所有仓库的 name / path / kind / service / api_client_dirs。它是多仓库分析的第一张表。</p>
+                                <p class="panel-action">没有 repos.yaml，就不要谈工作区覆盖率</p>
+                            </div>
+                            <div class="panel accent reveal">
+                                <h3>api-edges.yaml</h3>
+                                <p>记录前端调用点与后端 HTTP 入口的 join 结果：source、target、method、path、match_type、evidence、human_note。</p>
+                                <p class="panel-action">fuzzy/unmatched 是验证队列，不是结论</p>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">09 篇补上的关键空白：真实系统常常不是一个仓库。多仓库分析先定义工作区分母，再把 API/RPC/共享表/co-change 四类信号合并成服务地图。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P31: Agent skills -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第八部分 · 模板与工具包</p>
+                        <h2 class="reveal">Agent skills：工具节点需要一个总控入口</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="skill-ladder">
+                            <div class="skill-hub reveal">
+                                <code>$codebase-analysis</code>
+                                <p>总控 skill。先判断单仓库/多仓库、当前阶段、缺少哪些证据，再路由到具体工具节点。</p>
+                            </div>
+                            <div class="skill-list reveal">
+                                <div class="skill-item"><code>$git-hotspot-mining</code><p>T1：热点、co-change、ownership；附可运行 git_miner.py</p></div>
+                                <div class="skill-item"><code>$entry-census</code><p>T2/T2.6：HTTP、cron、MQ、event、rpc-in、rpc-out</p></div>
+                                <div class="skill-item"><code>$asset-labeling</code><p>梳理核心：全量分类标注、置信度、仲裁队列、燃尽</p></div>
+                                <div class="skill-item"><code>$mismatch-detection</code><p>T7：只扫热点，输出访谈问题，不输出业务结论</p></div>
+                                <div class="skill-item"><code>$cross-repo-mapping</code><p>09：workspace、API 边、RPC 边、共享表、跨仓库 co-change</p></div>
+                                <div class="skill-item"><code>$frontend-slides</code><p>本演示文稿的生成与 Pages 展示工具</p></div>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">单独看 T2/T7 会断：它们靠 artifact 流连接。入口、热点、trace、glossary、访谈问题必须一起看，才是完整工作流。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P32: T2 到 T7 的 artifact 流 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第八部分 · 模板与工具包</p>
+                        <h2 class="reveal">T2 和 T7 靠 artifact 流连接，不靠记忆</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="flow-track reveal">
+                            <div class="flow-step"><span class="step-num">T1</span><strong>hotspot.csv</strong><span class="step-desc">决定哪些模块值得专家时间</span></div>
+                            <div class="flow-step"><span class="step-num">T2</span><strong>entries.yaml</strong><span class="step-desc">给出入口骨架与 file:line 锚点</span></div>
+                            <div class="flow-step"><span class="step-num">TR</span><strong>trace-record</strong><span class="step-desc">记录选中旅程真实做了什么</span></div>
+                            <div class="flow-step"><span class="step-num">T7</span><strong>questions</strong><span class="step-desc">把命名/行为错位变成访谈问题</span></div>
+                            <div class="flow-step"><span class="step-num">G</span><strong>glossary</strong><span class="step-desc">具名确认后回填，注入下一轮</span></div>
+                        </div>
+                        <p class="slide-footnote reveal">这就是为什么需要总控 skill：工具节点只知道局部任务；`$codebase-analysis` 负责判断现在缺的是入口、热点、trace、访谈，还是业务确认。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P33: Runnable T1 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">第八部分 · 模板与工具包</p>
+                        <h2 class="reveal">T1 已经从方法论变成可运行脚本</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="reveal"><div class="code-block"><span class="cm"># 单仓库：当天得到三张 CSV</span>
+python3 scripts/git_miner.py . \
+  --months 12 \
+  --out notes/t1
+
+<span class="cm"># 多仓库：加上工单 ID 跨仓库 co-change</span>
+python3 scripts/git_miner.py repo-a repo-b \
+  --ticket-regex '[A-Z]{2,10}-\d+' \
+  --out workspace/t1</div></div>
+                            <div class="panel green reveal">
+                                <h3>脚本已经处理三个坑</h3>
+                                <ul class="clean sm">
+                                    <li><strong style="color:var(--text-primary)">时间衰减</strong>：上月变更权重大于一年前</li>
+                                    <li><strong style="color:var(--text-primary)">巨型 commit</strong>：co-change 剔除、热点降权</li>
+                                    <li><strong style="color:var(--text-primary)">rename 追踪</strong>：历史归并到当前路径</li>
+                                </ul>
+                                <p class="panel-action">产出 hotspot.csv / cochange.csv / ownership.csv</p>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">这是整个工具包的落地点：先用确定性脚本拿到数据，再让 LLM 做归因、摘要和错位探测。不要把采集层交给模型猜。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P34: 人机分工 -->
+            <section class="slide grid-bg">
+                <div class="slide-inner">
+                    <div class="slide-head">
+                        <p class="eyebrow reveal">收尾</p>
+                        <h2 class="reveal">人机分工：各做各擅长的</h2>
+                    </div>
+                    <div class="slide-body">
+                        <div class="two-col">
+                            <div class="panel accent reveal">
+                                <h3>AI / Agent</h3>
+                                <ul class="clean sm">
+                                    <li><strong style="color:var(--text-primary)">并行探索</strong>：同时摸清配置加载、权限模型、写入路径几条线</li>
+                                    <li>批量生成表征测试（枯燥但关键）</li>
+                                    <li>错位探测：产出访谈问题清单</li>
+                                    <li>归类标注提议：附置信度 + 证据</li>
+                                    <li>候选清单 + 收益假设生成</li>
+                                </ul>
+                            </div>
+                            <div class="panel warm reveal">
+                                <h3>人（牵头人与领域专家）</h3>
+                                <ul class="clean sm">
+                                    <li>裁决优先级、判断哪条线值得深入</li>
+                                    <li>business-confirmed 确认（具名+日期）</li>
+                                    <li>访谈领域专家，回填 glossary</li>
+                                    <li>仲裁低置信度标注与争议归属</li>
+                                    <li>对上拿授权：数据支撑的痛点 + 度量方案 + 失效模式预判</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <p class="slide-footnote reveal">表示形式上遵循"一份数据、两个投影"：人看 treemap / mermaid，模型读 stable ID + 显式边的卡片，都从同一数据层派生。<strong>永远不要手绘架构图</strong>——手绘图从画完那一刻就开始腐烂。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- P35: 结语 -->
+            <section class="slide title-slide grid-bg">
+                <div class="slide-inner">
+                    <p class="eyebrow reveal">你的第一周</p>
+                    <h2 class="reveal closing-title">先定义分母，再跑工具，用证据说话</h2>
+                    <div class="panel reveal" style="margin-top:36px;max-width:1100px">
+                        <ol class="steps" style="gap:13px">
+                            <li style="font-size:var(--body-sm)">用 <strong>$codebase-analysis</strong> 作为入口——先判断单仓库/多仓库与当前阶段</li>
+                            <li style="font-size:var(--body-sm)">跑 <strong>$git-hotspot-mining</strong>——当天拿到热点/耦合/孤岛清单</li>
+                            <li style="font-size:var(--body-sm)">跑 <strong>$entry-census</strong>——入口骨架与运行时对账是后续 trace 的锚点</li>
+                            <li style="font-size:var(--body-sm)">建 <strong>templates/ 里的 glossary 与 notes</strong>——人工段从第一天保护起来</li>
+                            <li style="font-size:var(--body-sm)">选<strong>一条端到端旅程</strong>做第一次运行时验证，再把热点喂给 T7 访谈问题</li>
+                        </ol>
+                    </div>
+                    <div class="badge-row reveal closing-links">
+                        <span class="badge"><a href="https://github.com/makotogu/codebase-analysis-methodology">GitHub 仓库</a></span>
+                        <span class="badge"><a href="https://github.com/makotogu/codebase-analysis-methodology/blob/cursor/codebase-analysis-methodology-docs/README.md">完整文档（9 篇 + templates + skills）</a></span>
+                    </div>
+                    <p class="meta reveal">存量大型代码库分析方法论 · Pages 工具包版</p>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <nav class="deck-controls" aria-label="幻灯片导航">
+        <button type="button" id="prevBtn" aria-label="上一页">‹</button>
+        <span id="pageIndicator">1 / 36</span>
+        <button type="button" id="nextBtn" aria-label="下一页">›</button>
+    </nav>
+
+    <script>
+        class SlidePresentation {
+            constructor() {
+                this.slides = Array.from(document.querySelectorAll('.slide'));
+                this.currentSlide = 0;
+                this.stage = document.getElementById('deckStage');
+                this.pageIndicator = document.getElementById('pageIndicator');
+                this.setupStageScale();
+                this.setupKeyboardNav();
+                this.setupTouchNav();
+                this.setupControls();
+                this.showSlide(this.getInitialIndex(), { updateHash: false });
+            }
+
+            getInitialIndex() {
+                const raw = window.location.hash.replace('#', '');
+                const page = Number.parseInt(raw, 10);
+                if (Number.isFinite(page) && page >= 1 && page <= this.slides.length) {
+                    return page - 1;
+                }
+                return 0;
+            }
+
+            setupStageScale() {
+                const scale = () => {
+                    const factor = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+                    const x = (window.innerWidth - 1920 * factor) / 2;
+                    const y = (window.innerHeight - 1080 * factor) / 2;
+                    this.stage.style.transform = `translate(${x}px, ${y}px) scale(${factor})`;
+                };
+                scale();
+                window.addEventListener('resize', scale);
+            }
+
+            setupKeyboardNav() {
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+                        e.preventDefault();
+                        this.next();
+                    } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+                        e.preventDefault();
+                        this.prev();
+                    } else if (e.key === 'Home') {
+                        e.preventDefault();
+                        this.showSlide(0);
+                    } else if (e.key === 'End') {
+                        e.preventDefault();
+                        this.showSlide(this.slides.length - 1);
+                    }
+                });
+            }
+
+            setupTouchNav() {
+                let startX = 0;
+                document.addEventListener('touchstart', (e) => {
+                    startX = e.changedTouches[0].screenX;
+                }, { passive: true });
+                document.addEventListener('touchend', (e) => {
+                    const diff = e.changedTouches[0].screenX - startX;
+                    if (Math.abs(diff) > 50) {
+                        diff < 0 ? this.next() : this.prev();
+                    }
+                }, { passive: true });
+            }
+
+            setupControls() {
+                document.getElementById('prevBtn').addEventListener('click', () => this.prev());
+                document.getElementById('nextBtn').addEventListener('click', () => this.next());
+            }
+
+            next() {
+                this.showSlide(this.currentSlide + 1);
+            }
+
+            prev() {
+                this.showSlide(this.currentSlide - 1);
+            }
+
+            showSlide(index, options = {}) {
+                const { updateHash = true } = options;
+                this.currentSlide = Math.max(0, Math.min(index, this.slides.length - 1));
+                this.slides.forEach((slide, i) => {
+                    slide.classList.toggle('active', i === this.currentSlide);
+                    slide.classList.toggle('visible', i === this.currentSlide);
+                });
+                this.pageIndicator.textContent = `${this.currentSlide + 1} / ${this.slides.length}`;
+                if (updateHash) {
+                    history.replaceState(null, '', `#${this.currentSlide + 1}`);
+                }
+            }
+        }
+
+        new SlidePresentation();
+    </script>
+</body>
+</html>
