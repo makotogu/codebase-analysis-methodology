@@ -1,0 +1,32 @@
+schema_version: "1.0"
+artifact:
+  id: asset-inventory
+  type: asset-labeling
+  path: asset-inventory.csv
+  generated_at: "2026-07-10T08:00:00Z"
+  generated_by:
+    tool: asset-labeling
+    version: "1.0.0"
+    command: "asset-labeling classify --labels labels.yaml"
+source:
+  repositories:
+    - name: order-service
+      commit: 0123456789abcdef0123456789abcdef01234567
+  scan_scope:
+    included: ["src/main/**"]
+    excluded: ["target/**", "generated/**"]
+  configuration:
+    files: ["labels.yaml", "analysis-policy.yaml"]
+    digest: "sha256:replace-me"
+observation:
+  environment: "source-only"
+  time_window: {start: null, end: null}
+  sampling: "not-applicable"
+  acquisition_method: "repository scan plus model-assisted label proposal"
+limitations:
+  - "low-confidence and label-gap units require human arbitration"
+maintenance:
+  owner: "architecture-team"
+  expires_at: "2026-08-10T08:00:00Z"
+  stale_when: ["repository HEAD changes", "labels.yaml changes"]
+  refresh_command: "asset-labeling classify --labels labels.yaml"

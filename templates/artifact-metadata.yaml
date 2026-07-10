@@ -1,0 +1,37 @@
+# artifact-metadata.yaml — 机器生成产物的 provenance 合同
+schema_version: "1.0"
+artifact:
+  id: order-service-entry-census
+  type: entry-census
+  path: entries.yaml
+  generated_at: "2026-07-10T08:00:00Z"
+  generated_by:
+    tool: entry-census
+    version: "1.0.0"
+    command: "entry-census scan --config analysis-policy.yaml"
+source:
+  repositories:
+    - name: order-service
+      commit: 0123456789abcdef0123456789abcdef01234567
+  scan_scope:
+    included: ["src/main/**", "src/test/**"]
+    excluded: ["target/**", "vendor/**"]
+  configuration:
+    files: ["analysis-policy.yaml"]
+    digest: "sha256:replace-me"
+observation:
+  environment: "source-only"
+  time_window:
+    start: null
+    end: null
+  sampling: "not-applicable"
+  acquisition_method: "annotation and configuration scan"
+limitations:
+  - "dynamic registrations may be missed"
+maintenance:
+  owner: "architecture-team"
+  expires_at: "2026-08-10T08:00:00Z"
+  stale_when:
+    - "repository HEAD differs from source commit"
+    - "scanner configuration changes"
+  refresh_command: "entry-census scan --config analysis-policy.yaml"

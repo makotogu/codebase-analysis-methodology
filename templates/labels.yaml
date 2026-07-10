@@ -38,6 +38,6 @@
 
 - label: dead-candidate
   name_cn: 死代码候选
-  description: 生产 profiler / 类加载记录中长期未出现的单元；删除前需业务确认
+  description: 在声明生产环境和窗口的 profiler / 类加载记录中未出现的单元；这不是不存在证明，删除前需构建、引用、运行和负责人确认
   owner: 架构组
   status: confirmed

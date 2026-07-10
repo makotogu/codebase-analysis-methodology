@@ -1,78 +1,33 @@
 # 05 Java/Spring 落地指南
 
-Java/Spring 栈对本方法论是好消息：静态类型加上 Spring 的"一切皆注解/配置"，让入口普查（T2）和可达性分析（T5）的可行性比动态语言高一大截，而且有几条 Java 独有的捷径。本篇按工具逐个给出栈特定的实现细节。
+本篇适用于 Java/Spring 仓库的 Phase 1–3。输入是仓库、构建配置、Spring 配置和获批运行环境；产物是入口/表映射、覆盖差异、观测记录与可达性估计。它不能仅凭注解扫描或 profiler 样本推出生产完整覆盖。
 
-## T2 入口普查：注解扫描 + 运行时对账
+## 一、T2 入口普查：扫描 + 限定环境对账
 
-静态侧按四类扫描：
+静态扫描 HTTP 注解与 `RouterFunction`、`@Scheduled`/Quartz/外部任务配置、MQ consumer、事件监听和 servlet/XML 注册。每个适配器把支持机制和盲区写入 `coverage-ledger.yaml`。
 
-| 类型 | 注册机制 |
-|---|---|
-| HTTP | `@RequestMapping` / `@GetMapping` 等注解；WebFlux 的 `RouterFunction`；老工程的 web.xml / servlet 注册 |
-| 定时 | `@Scheduled`；Quartz 的 JobDetail/Trigger bean；xxl-job 的 `@XxlJob`；k8s CronJob manifest |
-| MQ | `@KafkaListener` / `@RabbitListener` / RocketMQ 的 `@RocketMQMessageListener` 及各类 consumer 注册 |
-| 事件 | `@EventListener`、`ApplicationListener` 实现类 |
+`@Profile`、`@Conditional*`、动态 Bean 和配置中心会让静态声明与目标环境不同。Actuator 的 mappings endpoint 只有在依赖、endpoint exposure、安全授权和目标配置均启用时才可使用；它反映该实例当时的 handler mappings，不代表所有部署。对账结果使用 static-only、runtime-only、matched 和 unknown，不称“完整路由真相”。参考 [Spring Boot Actuator endpoints](https://docs.spring.io/spring-boot/reference/actuator/endpoints.html)。
 
-用 JavaParser 或 tree-sitter-java 解析即可，**不需要工程能编译通过**——这对老旧存量工程很重要。
+## 二、T4：先盘点已有指标，再决定插桩
 
-**Spring 特有的坑：条件装配。** `@Profile`、`@ConditionalOn...` 会让静态清单里的入口在生产环境根本不激活。对账办法：如果工程有 spring-boot-actuator，`/actuator/mappings` 直接给出**运行时真实生效的完整路由表**，和静态清单做 diff：
+Micrometer/Actuator 是否提供 `http.server.requests` 取决于 Spring Boot 版本、依赖、观测配置和 endpoint 暴露。先查询目标实例和配置，再决定是否需要 web filter、`@Scheduled` 切面或 MQ interceptor。新增观测必须遵守 `analysis-policy.yaml`，评估标签基数、隐私、性能和回滚。
 
-- 静态有、运行时没有 → 死入口（条件未激活或死代码）；
-- 运行时有、静态没有 → 普查漏洞（动态注册、扫描器没覆盖的机制）。
+OpenTelemetry Java agent 的 zero-code instrumentation 可以覆盖许多受支持框架和库，但自动埋点通常集中在库/框架边界，并不自动解释应用内部业务步骤或所有自定义协议。参考 [OpenTelemetry zero-code instrumentation](https://opentelemetry.io/docs/concepts/instrumentation/zero-code/) 与 [Java agent 文档](https://opentelemetry.io/docs/zero-code/java/agent/)。
 
-这个对账本身就该做成工具的一部分。
+## 三、T5：字节码图仍是静态过近似
 
-## T4 收口点：先检查是不是白捡的
+`jdeps` 可生成 jar/package/class 依赖，但不是运行调用图。单实现接口可生成高置信候选，多实现接口保守全连并标 `inferred`，反射、AOP、ServiceLoader、JNI 和动态代理列为断点。CI/test 运行采集的边标 `test-observed`，不能推广到未覆盖测试或生产。
 
-**Spring Boot 自带 Micrometer。** 如果 actuator 已引入，`http.server.requests` 指标**开箱就有**——HTTP 入口的频率、耗时、状态码分布不用写一行插桩代码。配个 prometheus endpoint，或干脆写脚本定期抓取 `/actuator/metrics` 即可。所以第一步永远是：检查 pom/gradle 里有没有 actuator，有的话 T4 的大头是白捡的。
+## 四、JFR 与 async-profiler 的边界
 
-需要手写的只剩两处，各一个类：
+JFR 是事件记录框架；能获得哪些事件取决于 JDK、配置和事件启用情况。async-profiler 是采样 profiler。二者都可提供运行信号，但**不等同于代码覆盖率**，样本缺失不证明方法未执行。参考 [JFR API](https://docs.oracle.com/en/java/javase/17/docs/api/jdk.jfr/jdk/jfr/package-summary.html) 与 [async-profiler](https://github.com/async-profiler/async-profiler)。
 
-- 定时任务：一个环绕 `@Scheduled` 的 AOP 切面（记 entry_id、耗时、结果）；
-- MQ 消费：consumer 拦截器（Kafka 的 ConsumerInterceptor / RabbitMQ 的 advice chain）。
+类加载记录或长窗口采样未出现的类只能称“未观察代码候选”。删除前至少检查：明确分母和窗口、静态/反射引用、条件配置、构建与测试、目标环境观测、负责人和回滚方案。
 
-**agent 选项**：挂 OTel Java Agent 或 SkyWalking agent（字节码插桩、零代码改动）一步到位拿到真 tracing，成本是周级，值得尽早上——选型、采样策略与增量落地路径见 [06-分布式与Dubbo.md](06-分布式与Dubbo.md) 第五节。
+## 五、T2.5：表映射是候选数据边
 
-## T5 可达性：字节码分析比源码分析省事
+MyBatis XML、JPA `@Entity/@Table` 和 SQL 字符串可形成“表 ↔ 代码”候选矩阵。动态 SQL、存储过程、同义词、ORM 命名策略和运行时 schema 会造成断点。共享写表是数据所有权调查信号，不自动证明服务边界错误。
 
-第一刀直接用 **jdeps 对 jar 包做类/包级依赖图**——JDK 自带、基于字节码、不用自己写解析器。
+## 六、进入下一阶段
 
-**Spring DI 会打断朴素静态调用图**（按接口注入，实现类运行时才定），处理策略分级：
-
-| 情况 | 策略 |
-|---|---|
-| 单实现接口 | 直接连边（占绝大多数，可靠） |
-| 多实现接口 | 保守过近似：全连上，标记 uncertain |
-| 反射、AOP 动态代理 | 显式断点，列入"待人工验证"清单 |
-
-类级粒度对排优先级完全够用；函数级精化（Soot/WALA 这类重型工具）留到第二版，且只对热点模块做。
-
-## Java 栈的两个额外红利
-
-### 死代码检测几乎免费
-
-JVM 加 `-verbose:class` 参数或用 JFR 记录类加载事件，生产跑一两个月，**从未被加载的类就是类级死代码候选**——不需要 JaCoCo 那种侵入式覆盖率。对存量系统这经常能划掉两位数百分比的代码。删除死代码是 ROI 最高的"重构"，而且它让后续所有分析的分母变小。
-
-### T2.5：MyBatis/JPA 给你"数据表 ↔ 代码"地图
-
-如果用 MyBatis，mapper XML 是可解析的：SQL 里的表名 ↔ mapper 接口 ↔ 调用方，一条链全是静态可得的；JPA 则从 `@Table` / `@Entity` 注解拿。产出一张矩阵：**每张表被哪些模块读、哪些模块写**。
-
-这对重构决策价值极大，因为**拆模块/拆服务的真正硬约束往往不是代码依赖而是数据所有权**：一张表被五个模块直接写，代码层面拆得再干净也是假拆。表映射矩阵直接暴露这类问题，建议优先级排在 T2 之后立即做（故称 T2.5）。
-
-## Java 版落地顺序
-
-```mermaid
-flowchart LR
-    t1["T1 git挖掘"] --> checkActuator["检查 actuator<br/>可能白捡 T4 大头"]
-    checkActuator --> t2["T2+T2.5<br/>入口普查+表映射"]
-    t2 --> t5["T5 jdeps图<br/>+权重传播"]
-    t5 --> t6["T6 地图生成"]
-    t3["T3 日志普查"] -.并行.-> t6
-    t7["T7 glossary+错位探测"] -.伴随访谈节奏.-> t6
-```
-
-1. **T1**（git 挖掘，语言无关，当天出结果）；
-2. **检查 actuator 现状**——决定 T4 是白捡还是要写切面/拦截器；
-3. **T2 + T2.5**（入口普查 + 表映射普查，都是静态解析）；
-4. **T5**（jdeps 类级依赖图 + 入口权重传播）；
-5. **T6**（地图生成）；T3、T7 并行推进；T8 等重构方向确定后再上。
+Phase 1 退出前，扫描器、环境、配置、差异与未知项要进入 coverage ledger；Phase 2 退出前，关键观察要记录部署版本、时间窗口、采样和原始引用；Phase 3 只消费保留口径与不确定性的信号。产物维护人和 stale 条件写入 metadata，Spring/JDK/agent 版本或配置变化后复查。

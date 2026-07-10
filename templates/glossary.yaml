@@ -5,7 +5,7 @@
 # 用法：每次 Agent 会话开始时整体注入为上下文；访谈产出的每个
 #       澄清都回填到这里，而不是散落在聊天记录里。
 # 纪律：business_meaning 必须来自具名的人，confirmed_date 必填——
-#       业务理解会过时，来源和时间让它可审计、可更新。
+#       业务理解会过时，来源、适用范围和复查日期让它可审计、可更新。
 # =====================================================================
 
 # ---- 示例条目（替换为你的项目内容） ----
@@ -13,16 +13,20 @@
 - code_term: SettleService            # 代码里的命名（类/表/模块/字段均可）
   business_meaning: 实际处理的是对账，不是结算；真正的结算在 ClearingJob
   owner: 张三                          # 这个概念当前的业务负责人
-  confirmed_by: 张三                   # 谁确认的（可以与 owner 不同）
+  confirmed_by: [张三, 李四]           # 支持多个确认人
   confirmed_date: 2026-07
+  applicable_scope: [order-service, production-cn-east]
+  review_date: 2026-10-01
   evidence: src/main/java/com/acme/settle/SettleService.java
-  status: business-confirmed           # business-confirmed | pending
+  status: business-confirmed           # pending | business-confirmed | disputed | stale
 
 - code_term: t_order_ext
   business_meaning: ""                 # 尚未确认时留空，status 标 pending
   owner: ""
-  confirmed_by: ""
+  confirmed_by: []
   confirmed_date: ""
+  applicable_scope: []
+  review_date: 2026-08-01
   evidence: src/main/resources/mapper/OrderExtMapper.xml
   status: pending
   question: 这张表的 biz_type=3 分支在生产还有流量吗？   # 待访谈的问题可先挂在这里

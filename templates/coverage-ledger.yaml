@@ -1,0 +1,39 @@
+# coverage-ledger.yaml — Phase 1 声明分母与对账账本
+schema_version: "1.0"
+artifact_metadata: artifact-metadata.yaml
+declared_denominator:
+  repositories: [order-service]
+  entry_kinds: [http, cron, mq, event, webhook, rpc-in, rpc-out]
+  environments: [test, production]
+  time_window:
+    start: "2026-06-01T00:00:00Z"
+    end: "2026-06-30T23:59:59Z"
+discovery_methods:
+  - id: spring-annotation-scan
+    version: "1.0.0"
+    covers: [http, cron, event]
+    known_blind_spots: ["dynamic bean registration", "external schedulers"]
+reconciliation:
+  statically_discovered: 42
+  runtime_observed: 31
+  matched: 28
+  static_only: 14
+  runtime_only: 3
+  unknown_source_count: 2
+  coverage_rate:
+    numerator: 42
+    denominator: 47
+    formula: "accounted declared entries / declared entries"
+    value: 0.8936
+differences:
+  - id: gap-001
+    kind: runtime-only
+    reference: "trace query link or file:line"
+    evidence_type: runtime-observed
+    status: open
+    verification_task: "locate dynamic route registration"
+unknown_sources:
+  - "external scheduler inventory not yet supplied"
+maintenance:
+  owner: "architecture-team"
+  review_date: "2026-07-31"

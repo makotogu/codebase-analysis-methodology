@@ -1,0 +1,33 @@
+# analysis-policy.yaml — 数据处理、远程模型和审计策略
+schema_version: "1.0"
+classification:
+  source_code: internal
+  logs: confidential
+remote_model:
+  allowed: true
+  provider_allowlist: [deepseek]
+  permitted_data_classes: [public, internal]
+  prohibited_data:
+    - credentials
+    - personal-data
+    - production-payloads
+  require_redaction: true
+scope:
+  excluded_paths:
+    - "**/.env*"
+    - "**/secrets/**"
+    - "**/target/**"
+    - "**/vendor/**"
+redaction:
+  rules:
+    - name: bearer-token
+      pattern: "Bearer [A-Za-z0-9._-]+"
+      replacement: "Bearer [REDACTED]"
+retention:
+  model_inputs_days: 0
+  local_artifacts_days: 90
+audit:
+  log_tool_calls: true
+  log_model_usage: true
+  owner: "security-owner"
+  review_date: "2026-10-10"
