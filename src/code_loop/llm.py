@@ -42,13 +42,17 @@ class DeepSeekClient:
         )
 
     def complete(self, *, model: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> Completion:
+        request: dict[str, Any] = {
+            "model": model,
+            "messages": messages,
+            "response_format": {"type": "json_object"},
+            "max_tokens": 8_000,
+        }
+        if tools:
+            request["tools"] = tools
+            request["tool_choice"] = "auto"
         response = self.client.chat.completions.create(
-            model=model,
-            messages=messages,
-            tools=tools,
-            tool_choice="auto",
-            response_format={"type": "json_object"},
-            max_tokens=8_000,
+            **request,
         )
         message = response.choices[0].message
         usage = response.usage

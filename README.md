@@ -72,13 +72,31 @@ export DEEPSEEK_API_KEY='...'
 code-loop                       # 选择 workspace，进入 Dashboard
 code-loop /path/to/repository   # 指定 workspace
 code-loop start /path/to/repository "梳理订单创建请求的调用链"
+code-loop synthesize /path/to/repository <session-id>  # 只生成确定性基础卡
+code-loop synthesize /path/to/repository <session-id> --assess card_0001 card_0004
 ```
 
 工作台有六个任务视图：**Overview、Graph、Claims、Evidence、Activity、Revisions**。使用 `1–6` 或 Tab 切换，`Ctrl+P` 打开命令面板，`/` 过滤，`Ctrl+R` 继续分析，`F10` 聚焦内容，`m` 打开本地 Mermaid HTML。Claim 支持 `c/x/e` 裁决，Evidence 支持 `y` 复制引用、`o` 用 `$EDITOR` 打开。
 
-会话以一个主调查问题为边界，宽问题拆入议程，成功分析形成不可变 revision。`analysis.json` 是当前快照；`report.md`、`journey.mmd`、`report.html` 是可再生产物。当前 Code Loop 的 `verified` 仅按兼容规则解释为 `source-verified`；实现差距见 [Code Loop 与 Phase 0 契约差距评估](10-Code-Loop与Phase0契约差距.md)。
+会话以一个主调查问题为边界，宽问题拆入议程，每次成功分析形成独立 revision 与 `journeys/rev_NNNN.mmd`。下一轮只继承最近的 confirmed/amended Claim 摘要与 Evidence ID，不合并旧 Journey。
+
+完成会话是显式收尾动作：在命令面板选择“开始卡片提炼”，先裁决所有历史 Claim，再由确定性代码建立一 Claim 一基础卡，进入页面不会调用模型。需要整理时可用 Space 选择 2–8 张 active Card，再显式执行“AI 评估已选”；Flash 只判断重复、互补或冲突并提供预览，必须由用户接受才会合并。未处理的 AI 建议不会阻止封存。覆盖检查通过并封存后，会话才变为 completed。`synthesis.json` 是可恢复草稿，`syntheses/syn_NNNN.json` 是不可变封存快照；普通退出不会完成会话。
+
+`analysis.json` 是最新一轮快照；`report.md`、`journey.mmd`、`report.html` 是可再生产物。最终卡片仍只是 Phase 0 候选知识，不自动写入 glossary、coverage ledger 或重构提案。当前 Code Loop 的 `verified` 仅按兼容规则解释为 `source-verified`；实现差距见 [Code Loop 与 Phase 0 契约差距评估](10-Code-Loop与Phase0契约差距.md)。
 
 配置示例见 [code-loop.toml.example](code-loop.toml.example)。磁盘时间使用 UTC，Dashboard/Activity 转成本地时间；本地 HTML 使用随包分发的 Mermaid，不依赖远程图表服务。
+
+`max_agent_steps` 是一次“继续分析”中允许的 API 请求步数，不是会话可拥有的人工分析轮次；一次模型响应即一步，同一响应中的多个工具调用仍只算一步。会话可以持续产生任意多个独立 revision。复杂仓库可以在目标 workspace 根目录创建 `code-loop.toml`：
+
+```toml
+[model]
+max_agent_steps = 50       # 单次分析最多 50 次模型请求
+flash_max_steps = 16       # Flash 超过 16 步仍未收敛时升级 Pro
+stagnation_threshold = 5   # 连续 5 步没有新证据或有效工具结果才触发收敛
+max_session_cost_usd = 1.0 # 整个会话预算仍优先于步数上限
+```
+
+修改配置后重新打开 workspace 即可生效。提高步数不会关闭重复工具、无进展检测和预算保护；这些保护用于避免模型机械跑满 50 步。
 
 ## 在线演示
 

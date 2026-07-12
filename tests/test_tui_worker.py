@@ -51,16 +51,15 @@ class UsageFakeEngine(FakeEngine):
         return AnalysisDraft(status="needs_user", summary="后台完成", next_action="review")
 
 
-def test_analysis_runs_in_background_worker(tmp_path: Path) -> None:
+def test_new_session_auto_starts_analysis_in_background_worker(tmp_path: Path) -> None:
     async def scenario() -> None:
         config = Config()
         store = SessionStore(tmp_path, config.repository, "worker-session")
         session = store.create("问题", None)
-        app = CodeLoopApp(tmp_path, config, store, session)
+        app = CodeLoopApp(tmp_path, config, store, session, auto_start=True)
         app._new_engine = lambda *, progress, cancelled: FakeEngine(progress, cancelled)  # type: ignore[method-assign]
         async with app.run_test() as pilot:
-            app.action_run_analysis()
-            assert app.query_one("#analyze", Button).disabled
+            await pilot.pause()
             await asyncio.sleep(0.15)
             await pilot.pause()
             assert not app.query_one("#analyze", Button).disabled
@@ -218,7 +217,7 @@ def test_analysis_outcome_routes_blocking_claim_and_complete_states(tmp_path: Pa
     asyncio.run(scenario())
 
 
-def test_complete_session_saves_report_and_exits_analysis_page(tmp_path: Path) -> None:
+def test_complete_action_builds_cards_without_calling_model(monkeypatch, tmp_path: Path) -> None:
     async def scenario() -> None:
         config = Config()
         store = SessionStore(tmp_path, config.repository, "complete-session")
@@ -242,15 +241,79 @@ def test_complete_session_saves_report_and_exits_analysis_page(tmp_path: Path) -
             [],
         )
         app = CodeLoopApp(tmp_path, config, store, session)
+        monkeypatch.setattr("code_loop.tui.DeepSeekClient", lambda _config: (_ for _ in ()).throw(AssertionError("model called")))
         async with app.run_test() as pilot:
             app.action_complete_session()
             await pilot.pause()
 
-        assert store.load_session().status == "completed"
+        assert store.load_session().status == "active"
         report = store.report_path.read_text(encoding="utf-8")
-        assert "状态：`completed`" in report
+        assert "状态：`active`" in report
         revisions = store.list_revisions()
-        assert [(item.id, item.kind) for item in revisions] == [("rev_0001", "completion")]
+        assert [(item.id, item.kind) for item in revisions] == [("rev_0001", "model_analysis")]
+        assert store.synthesis_path.exists()
+        assert store.load_synthesis_or_none().coverage.confirmed == 1
+
+    asyncio.run(scenario())
+
+
+def test_synthesis_card_table_supports_space_multiselect(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        config = Config()
+        store = SessionStore(tmp_path, config.repository, "select-cards")
+        session = store.create("选择卡片", None)
+        store.save_analysis(AnalysisDraft(
+            status="ready_to_complete",
+            summary="完成",
+            claims=[
+                Claim(id="claim_1", statement="结论一", category="code_fact", evidence_level=EvidenceLevel.UNVERIFIED, confidence="low", review_status=ReviewStatus.CONFIRMED),
+                Claim(id="claim_2", statement="结论二", category="code_fact", evidence_level=EvidenceLevel.UNVERIFIED, confidence="low", review_status=ReviewStatus.CONFIRMED),
+            ],
+            next_action="complete",
+        ), [])
+        app = CodeLoopApp(tmp_path, config, store, session)
+        async with app.run_test() as pilot:
+            app.action_start_synthesis()
+            await pilot.pause()
+            table = app.screen.query_one("#syn-cards")
+            table.focus()
+            table.move_cursor(row=0)
+            await pilot.press("space")
+            table.move_cursor(row=1)
+            await pilot.press("space")
+            await pilot.pause()
+
+            assert app.screen.selected_card_ids == {"card_0001", "card_0002"}
+            assert not app.screen.query_one("#syn-generate", Button).disabled
+
+    asyncio.run(scenario())
+
+
+def test_sealing_synthesis_exits_parent_workbench(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        config = Config()
+        store = SessionStore(tmp_path, config.repository, "seal-exit")
+        session = store.create("封存退出", None)
+        store.save_analysis(AnalysisDraft(
+            status="ready_to_complete",
+            summary="完成",
+            claims=[Claim(
+                id="claim_1", statement="结论", category="code_fact",
+                evidence_level=EvidenceLevel.UNVERIFIED, confidence="low",
+                review_status=ReviewStatus.CONFIRMED,
+            )],
+            next_action="complete",
+        ), [])
+        store.ensure_model_revision()
+        store.build_synthesis()
+        app = CodeLoopApp(tmp_path, config, store, session)
+        async with app.run_test() as pilot:
+            app.action_start_synthesis()
+            await pilot.pause()
+            await pilot.click("#syn-seal")
+            await asyncio.sleep(0.05)
+
+        assert store.load_session().status == "completed"
         assert not app.is_running
 
     asyncio.run(scenario())

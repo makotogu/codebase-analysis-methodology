@@ -17,6 +17,7 @@ from textual.binding import Binding
 from textual.command import DiscoveryHit, Hit, Hits, Provider
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.events import Resize
+from textual.screen import Screen
 from textual.widgets import (
     Button,
     DataTable,
@@ -40,6 +41,7 @@ from .models import Claim, Correction, ReviewStatus, Session
 from .renderer import code_fence_language
 from .repository_tools import RepositoryTools
 from .storage import SessionStore
+from .synthesis import SynthesisEngine
 from .time_utils import format_local_timestamp, local_now_text
 from .workspace import WorkspaceChoice, WorkspaceError, normalize_scope_item, resolve_workspace, scope_mode
 
@@ -48,6 +50,7 @@ from .workspace import WorkspaceChoice, WorkspaceError, normalize_scope_item, re
 class SessionLaunch:
     repository: Path
     session_id: str
+    auto_start: bool = True
 
 
 @dataclass(frozen=True)
@@ -446,7 +449,7 @@ class WorkbenchCommands(Provider):
             ("从当前 Claim 创建子调查", app.action_branch_from_claim, "继承 Claim 引用的证据"),
             ("从当前 Graph 节点创建子调查", app.action_branch_from_node, "继承节点引用的证据"),
             ("打开本地 Mermaid 报告", app.action_open_mermaid, "在默认浏览器打开 report.html"),
-            ("完成会话", app.action_complete_session, "所有 Claim 裁决后完成"),
+            ("开始卡片提炼", app.action_start_synthesis, "手动收尾；封存后才完成会话"),
             ("过滤当前视图", app.action_filter_view, "按关键词筛选当前内容"),
         ]
         agenda = app.store.load_agenda(app.session)
@@ -495,6 +498,221 @@ class WorkbenchState:
     branch_source_topic_id: str | None = None
     branch_parent_revision_id: str | None = None
     selected_revision_id: str | None = None
+
+
+class SynthesisScreen(Screen[bool]):
+    """Explicit, reversible closing workflow for cross-round cards."""
+
+    BINDINGS = [Binding("space", "toggle_card", "选择卡片", show=False)]
+
+    CSS = """
+    SynthesisScreen { padding: 1 2; }
+    #syn-status { height: 3; border: round $primary; padding: 0 1; }
+    #syn-tables { height: 1fr; }
+    #syn-ledger { width: 40%; }
+    #syn-right { width: 1fr; }
+    #syn-suggestions, #syn-cards { height: 1fr; }
+    #syn-assessment-detail { height: 8; border-top: solid $primary; padding: 1; }
+    #syn-statement { height: 6; }
+    #syn-actions { height: 7; }
+    .syn-action-row { height: 3; }
+    """
+
+    def __init__(self, config: Config, store: SessionStore):
+        super().__init__()
+        self.config, self.store = config, store
+        self.selected_claim_id = self.selected_suggestion_id = self.selected_card_id = None
+        self.selected_card_ids: set[str] = set()
+
+    def compose(self) -> ComposeResult:
+        yield Header(show_clock=True)
+        yield Static("卡片提炼 · 返回不会完成会话，只有封存才会完成", id="syn-status", markup=False)
+        with Horizontal(id="syn-tables"):
+            yield DataTable(id="syn-ledger", cursor_type="row", zebra_stripes=True)
+            with Vertical(id="syn-right"):
+                yield DataTable(id="syn-suggestions", cursor_type="row", zebra_stripes=True)
+                yield DataTable(id="syn-cards", cursor_type="row", zebra_stripes=True)
+                yield Static("AI 合并评估\n选择 2–8 张 active Card 后按 Space 切换选择。", id="syn-assessment-detail", markup=False)
+        yield Input(placeholder="卡片标题，或 defer/dispute 的人工理由", id="syn-title")
+        yield TextArea(id="syn-statement")
+        with Vertical(id="syn-actions"):
+            with Horizontal(classes="syn-action-row"):
+                yield Button("确认 Claim", id="syn-confirm")
+                yield Button("否定 Claim", id="syn-reject")
+                yield Button("改写 Claim", id="syn-amend")
+                yield Button("AI 评估已选", id="syn-generate", variant="primary", disabled=True)
+                yield Button("接受合并", id="syn-accept")
+                yield Button("拒绝合并", id="syn-reject-merge")
+            with Horizontal(classes="syn-action-row"):
+                yield Button("编辑卡片", id="syn-edit")
+                yield Button("延后", id="syn-defer")
+                yield Button("争议", id="syn-dispute")
+                yield Button("封存", id="syn-seal", variant="success")
+                yield Button("返回", id="syn-back")
+
+    def on_mount(self) -> None:
+        self.query_one("#syn-ledger", DataTable).add_columns("状态", "跨轮 Claim", "结论")
+        self.query_one("#syn-suggestions", DataTable).add_columns("状态", "关系", "建议", "候选卡")
+        self.query_one("#syn-cards", DataTable).add_columns("选择", "状态", "卡片", "标题", "来源数")
+        existing = self.store.load_synthesis_or_none()
+        if (existing is None or existing.status == "stale") and not any(
+            item["review_status"] == "proposed" for item in self.store.claim_ledger()
+        ):
+            self.store.build_synthesis()
+        self._refresh_data()
+
+    def _refresh_data(self) -> None:
+        ledger = self.store.claim_ledger()
+        table = self.query_one("#syn-ledger", DataTable)
+        table.clear()
+        for item in ledger:
+            table.add_row(item["review_status"], item["source_claim_id"], item["statement"][:80], key=item["source_claim_id"])
+        suggestions = self.query_one("#syn-suggestions", DataTable)
+        cards = self.query_one("#syn-cards", DataTable)
+        suggestions.clear(); cards.clear()
+        synthesis = self.store.load_synthesis_or_none()
+        if synthesis is None:
+            proposed = sum(item["review_status"] == "proposed" for item in ledger)
+            self.query_one("#syn-status", Static).update(f"尚未创建提炼草稿 · 待裁决 Claim {proposed}")
+            return
+        for item in synthesis.suggestions:
+            suggestions.add_row(
+                item.status,
+                item.relation,
+                item.id,
+                ", ".join(item.candidate_card_ids) or "历史 Claim 建议",
+                key=item.id,
+            )
+        active_ids = {item.id for item in synthesis.cards if item.status == "active"}
+        self.selected_card_ids.intersection_update(active_ids)
+        for item in synthesis.cards:
+            marker = "✓" if item.id in self.selected_card_ids else "·"
+            cards.add_row(marker, item.status, item.id, item.title[:70], str(len(item.source_claim_ids)), key=item.id)
+        c = synthesis.coverage
+        error = f" · 模型建议失败：{synthesis.model_error}" if synthesis.model_error else ""
+        self.query_one("#syn-status", Static).update(
+            f"{synthesis.status} · confirmed {c.confirmed} · mapped {c.mapped} · deferred {c.deferred} · "
+            f"disputed {c.disputed} · missing {c.missing} · 已选卡片 {len(self.selected_card_ids)}/8{error}"
+        )
+        self.query_one("#syn-generate", Button).disabled = not 2 <= len(self.selected_card_ids) <= 8
+
+    def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
+        value = str(event.row_key.value)
+        if event.data_table.id == "syn-ledger":
+            self.selected_claim_id = value
+            row = next((item for item in self.store.claim_ledger() if item["source_claim_id"] == value), None)
+            if row:
+                self.query_one("#syn-statement", TextArea).text = row["statement"]
+        elif event.data_table.id == "syn-suggestions":
+            self.selected_suggestion_id = value
+            synthesis = self.store.load_synthesis_or_none()
+            suggestion = next((item for item in synthesis.suggestions if item.id == value), None) if synthesis else None
+            if suggestion:
+                card_map = {item.id: item for item in synthesis.cards}
+                candidate_cards = [card_map[item] for item in suggestion.candidate_card_ids if item in card_map]
+                source_claims = list(dict.fromkeys(
+                    claim_id for card in candidate_cards for claim_id in card.source_claim_ids
+                ))
+                evidence_ids = list(dict.fromkeys(
+                    evidence_id for card in candidate_cards for evidence_id in card.evidence_ids
+                ))
+                scopes = list(dict.fromkeys(card.scope for card in candidate_cards if card.scope.strip()))
+                preview = suggestion.suggested_statement or "此关系不建议直接合并。"
+                self.query_one("#syn-assessment-detail", Static).update(
+                    f"{suggestion.id} · {suggestion.relation} · {suggestion.confidence}\n"
+                    f"候选：{', '.join(suggestion.candidate_card_ids)}\n"
+                    f"来源 Claim：{', '.join(source_claims) or '无'}\n"
+                    f"Evidence：{len(evidence_ids)} 份 · 适用边界：{'；'.join(scopes) or '未单独声明'}\n"
+                    f"理由：{suggestion.rationale or '无'}\n"
+                    f"冲突：{suggestion.conflict_hint or '无'}\n"
+                    f"预览：{preview}"
+                )
+        elif event.data_table.id == "syn-cards":
+            self.selected_card_id = value
+            synthesis = self.store.load_synthesis_or_none()
+            card = next((item for item in synthesis.cards if item.id == value), None) if synthesis else None
+            if card:
+                self.query_one("#syn-title", Input).value = card.title
+                self.query_one("#syn-statement", TextArea).text = card.statement
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        try:
+            button = event.button.id or ""
+            if button in {"syn-confirm", "syn-reject", "syn-amend"}:
+                self._review_claim(button.removeprefix("syn-"))
+            elif button == "syn-generate": self._start_generation()
+            elif button == "syn-accept" and self.selected_suggestion_id: self.store.accept_merge(self.selected_suggestion_id)
+            elif button == "syn-reject-merge" and self.selected_suggestion_id: self.store.reject_merge(self.selected_suggestion_id)
+            elif button == "syn-edit" and self.selected_card_id:
+                self.store.edit_card(self.selected_card_id, title=self.query_one("#syn-title", Input).value, statement=self.query_one("#syn-statement", TextArea).text)
+            elif button in {"syn-defer", "syn-dispute"} and self.selected_claim_id:
+                action = "deferred" if button == "syn-defer" else "disputed"
+                self.store.set_claim_disposition(self.selected_claim_id, action, self.query_one("#syn-title", Input).value)
+            elif button == "syn-seal":
+                self.store.seal_synthesis(); self.dismiss(True); return
+            elif button == "syn-back": self.dismiss(False); return
+            self._refresh_data()
+        except Exception as exc:
+            self.notify(str(exc), severity="error")
+
+    def _review_claim(self, action: str) -> None:
+        row = next((item for item in self.store.claim_ledger() if item["source_claim_id"] == self.selected_claim_id), None)
+        if row is None: raise ValueError("请先选择一条跨轮 Claim")
+        amended = self.query_one("#syn-statement", TextArea).text.strip() if action == "amend" else None
+        if action == "amend" and not amended: raise ValueError("改写内容不能为空")
+        self.store.append_correction(Correction(
+            revision_id=row["revision_id"], claim_id=row["claim_id"], verdict=action,
+            statement_snapshot=row["statement"], evidence_ids=row["evidence_ids"], amended_statement=amended,
+        ))
+        self.store.render_artifacts()
+        if not any(item["review_status"] == "proposed" for item in self.store.claim_ledger()):
+            self.store.build_synthesis()
+
+    def _start_generation(self) -> None:
+        proposed = [item for item in self.store.claim_ledger() if item["review_status"] == "proposed"]
+        if proposed: raise ValueError(f"仍有 {len(proposed)} 条 Claim 待裁决，暂不调用模型")
+        synthesis = self.store.build_synthesis()
+        selected = sorted(self.selected_card_ids)
+        if not 2 <= len(selected) <= 8:
+            raise ValueError("请选择 2–8 张 active Card")
+        self.query_one("#syn-status", Static).update(
+            f"DeepSeek Flash 正在评估 {len(selected)} 张选中卡片…"
+        )
+        self.generate_suggestions(synthesis, selected)
+
+    @work(thread=True, exclusive=True, group="synthesis")
+    def generate_suggestions(self, synthesis, card_ids: list[str]) -> None:
+        try:
+            SynthesisEngine(self.config, self.store, DeepSeekClient(self.config.model)).assess_cards(
+                self.store.load_session(), synthesis, card_ids
+            )
+            self.app.call_from_thread(self._finish_generation, None)
+        except Exception as exc:
+            self.app.call_from_thread(self._finish_generation, str(exc))
+
+    def _finish_generation(self, error: str | None) -> None:
+        self._refresh_data()
+        self.notify(error or "提炼草稿已生成；合并建议不会自动生效。", severity="error" if error else "information")
+
+    def action_toggle_card(self) -> None:
+        table = self.query_one("#syn-cards", DataTable)
+        if not table.has_focus or table.row_count == 0:
+            return
+        card_id = str(table.coordinate_to_cell_key(table.cursor_coordinate).row_key.value)
+        synthesis = self.store.load_synthesis_or_none()
+        card = next((item for item in synthesis.cards if item.id == card_id), None) if synthesis else None
+        if card is None or card.status != "active":
+            self.notify("只能选择 active Card。", severity="warning")
+            return
+        if card_id in self.selected_card_ids:
+            self.selected_card_ids.remove(card_id)
+        elif len(self.selected_card_ids) >= 8:
+            self.notify("一次最多选择 8 张卡片。", severity="warning")
+            return
+        else:
+            self.selected_card_ids.add(card_id)
+        self._refresh_data()
+
 
 class CodeLoopApp(App[SessionLaunch | None]):
     """Review and continue an existing evidence-driven analysis session."""
@@ -553,9 +771,10 @@ class CodeLoopApp(App[SessionLaunch | None]):
     ]
     COMMANDS = App.COMMANDS | {WorkbenchCommands}
 
-    def __init__(self, repository: Path, config: Config, store: SessionStore, session: Session):
+    def __init__(self, repository: Path, config: Config, store: SessionStore, session: Session, *, auto_start: bool = False):
         super().__init__()
         self.repository, self.config, self.store, self.session = repository, config, store, session
+        self.auto_start = auto_start
         self.state = WorkbenchState()
         self.analysis_worker: Worker[None] | None = None
         self.progress_text = "就绪。"
@@ -616,7 +835,7 @@ class CodeLoopApp(App[SessionLaunch | None]):
         with Horizontal(id="global-actions"):
             yield Button("继续分析", id="analyze", variant="primary")
             yield Button("取消分析", id="cancel-analysis", disabled=True)
-            yield Button("完成", id="complete", variant="success")
+            yield Button("开始卡片提炼", id="complete", variant="success")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -627,6 +846,8 @@ class CodeLoopApp(App[SessionLaunch | None]):
         analysis = self.store.load_analysis_or_none()
         if analysis is not None:
             self._apply_analysis_outcome(analysis.draft)
+        elif self.auto_start:
+            self.call_later(self.action_run_analysis)
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         if self.filter_mode:
@@ -658,7 +879,7 @@ class CodeLoopApp(App[SessionLaunch | None]):
         elif event.button.id == "cancel-analysis":
             self.action_cancel_analysis()
         elif event.button.id == "complete":
-            self.action_complete_session()
+            self.action_start_synthesis()
         elif event.button.id in {"confirm", "reject"}:
             self._record_review(event.button.id)
         elif event.button.id == "amend":
@@ -977,6 +1198,9 @@ class CodeLoopApp(App[SessionLaunch | None]):
         elif kind == "validation_failed":
             message = f"结构化结果校验失败，正在重试（第 {payload['attempt']} 次）。"
             activity = f"结构化结果校验失败 · 第 {payload['attempt']} 次"
+        elif kind == "analysis_placeholder_rejected":
+            message = "模型只返回了探索计划，正在继续读取仓库并形成证据结论。"
+            activity = "已忽略无证据的占位结果，继续调查"
         elif kind == "model_upgraded":
             message = f"已升级至 {self._model_display_name(payload['model'])}：{payload['reason']}。"
             activity = message
@@ -1097,7 +1321,7 @@ class CodeLoopApp(App[SessionLaunch | None]):
         else:
             self.action_show_tab("overview")
             self.query_one("#input", Input).placeholder = "追问当前分析后按 Enter；Ctrl+R 可直接继续"
-            message = "分析完成，可以查看报告或完成会话。"
+            message = "分析完成，可以继续查看，或手动开始卡片提炼。"
         return message
 
     def _analysis_failed(self, error: str) -> None:
@@ -1152,7 +1376,7 @@ class CodeLoopApp(App[SessionLaunch | None]):
         content = "最近活动\n" + "\n".join(self._activity)
         self.query_one("#activity-log", Static).update(content)
 
-    def action_complete_session(self) -> None:
+    def action_start_synthesis(self) -> None:
         analysis = self.store.load_analysis_or_none()
         blocking = [question for question in (analysis.draft.open_questions if analysis else []) if question.blocking]
         if blocking:
@@ -1160,20 +1384,20 @@ class CodeLoopApp(App[SessionLaunch | None]):
             input_widget = self.query_one("#input", Input)
             input_widget.placeholder = f"请回答：{blocking[0].question[:160]}"
             input_widget.focus()
-            self.notify("尚有需要补充的问题，回答后再完成会话。", severity="warning")
+            self.notify("尚有需要补充的问题，回答后再开始卡片提炼。", severity="warning")
             return
-        unresolved = [claim for claim in (analysis.draft.claims if analysis else []) if claim.review_status == ReviewStatus.PROPOSED]
-        if unresolved:
-            self.notify("仍有待裁决结论，完成前请确认、否定或改写。", severity="warning")
-            return
-        self.session.status = "completed"
-        self.store.save_session(self.session)
-        if analysis is not None:
-            self.store.create_revision(kind="completion")
-            self.session = self.store.load_session()
-        self.store.mark_parent_topic_completed(self.session)
-        self._render_report()
-        self.exit()
+        self.store.ensure_model_revision()
+        self.push_screen(SynthesisScreen(self.config, self.store), self._synthesis_closed)
+
+    def action_complete_session(self) -> None:
+        """Backward-compatible action name; completion now requires synthesis sealing."""
+        self.action_start_synthesis()
+
+    def _synthesis_closed(self, sealed: bool | None) -> None:
+        self.session = self.store.load_session()
+        self._refresh()
+        if sealed:
+            self.exit()
 
     def _record_review(self, action: str) -> None:
         analysis = self.store.load_analysis_or_none()
@@ -1186,7 +1410,15 @@ class CodeLoopApp(App[SessionLaunch | None]):
         if action == "amend" and not amended:
             self.notify("请在底部输入框填写改写后的结论。", severity="warning")
             return
-        self.store.append_correction(Correction(claim_id=claim.id, verdict=action, amended_statement=amended, note=note if action != "amend" else ""))
+        self.store.append_correction(Correction(
+            claim_id=claim.id,
+            verdict=action,
+            revision_id=self.session.current_revision_id,
+            statement_snapshot=claim.statement,
+            evidence_ids=claim.evidence_ids,
+            amended_statement=amended,
+            note=note if action != "amend" else "",
+        ))
         claim.review_status = {"confirm": ReviewStatus.CONFIRMED, "reject": ReviewStatus.REJECTED, "amend": ReviewStatus.AMENDED}[action]
         if amended:
             claim.human_text = amended

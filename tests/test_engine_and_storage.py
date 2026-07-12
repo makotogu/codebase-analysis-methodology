@@ -29,7 +29,13 @@ class FakeClient:
 
 FINAL_EMPTY_ANALYSIS = (
     '{"status":"needs_user","summary":"已基于现有信息完成。","journey_nodes":[],"journey_edges":[],'
-    '"claims":[],"open_questions":[],"next_action":"review"}'
+    '"claims":[],"open_questions":[{"id":"q1","question":"还需人工确认运行行为",'
+    '"blocking":false,"suggested_verification":"运行测试"}],"next_action":"review"}'
+)
+
+PLACEHOLDER_ANALYSIS = (
+    '{"status":"draft","summary":"Starting exploration to understand the project.",'
+    '"journey_nodes":[],"journey_edges":[],"claims":[],"open_questions":[],"next_action":"explore"}'
 )
 
 
@@ -43,6 +49,33 @@ class SequenceClient:
         self.models.append(model)
         self.messages.append(messages.copy())
         return self.responses[len(self.models) - 1]
+
+
+def test_placeholder_result_continues_same_run_without_creating_revision(tmp_path: Path) -> None:
+    (tmp_path / "config.py").write_text("DATA_SOURCE = 'local'\n", encoding="utf-8")
+    client = SequenceClient([
+        Completion(PLACEHOLDER_ANALYSIS, [], Usage()),
+        Completion(None, [ToolCall("read-config", "read_lines", {"path": "config.py", "start_line": 1, "end_line": 1})], Usage()),
+        Completion(
+            '{"status":"needs_user","summary":"已定位配置入口。","journey_nodes":[],"journey_edges":[],'
+            '"claims":[{"id":"c1","statement":"配置入口存在","category":"code_fact",'
+            '"evidence_ids":["ev_1"],"evidence_level":"verified","confidence":"high"}],'
+            '"open_questions":[],"next_action":"review"}',
+            [], Usage(),
+        ),
+    ])
+    config = Config()
+    store = SessionStore(tmp_path, config.repository, "placeholder-session")
+    session = store.create("配置方式是什么？", None)
+    engine = AnalysisEngine(config=config, tools=RepositoryTools(tmp_path, config.repository), store=store, client=client)
+
+    result = engine.analyze(session)
+
+    assert result.claims[0].id == "c1"
+    assert len(store.list_revisions()) == 1
+    assert len(client.models) == 3
+    assert "analysis_placeholder_rejected" in store.events_path.read_text(encoding="utf-8")
+    assert "Use the repository tools now" in client.messages[1][-1]["content"]
 
 
 def test_engine_persists_evidence_and_human_amendment(tmp_path: Path) -> None:

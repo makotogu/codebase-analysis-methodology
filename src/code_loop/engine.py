@@ -205,6 +205,27 @@ class AnalysisEngine:
                 messages.append({"role": "user", "content": f"Your JSON was invalid: {str(exc)[:600]}. Return the required JSON object only."})
                 phase = "repairing_output"
                 continue
+            if self._is_placeholder_draft(draft):
+                stagnant_steps += 1
+                payload = {
+                    "step": step,
+                    "max_steps": max_steps,
+                    "model": model,
+                    "summary": draft.summary[:300],
+                    "reason": "模型尚未取证，仅返回探索性占位内容",
+                }
+                self.store.event({"type": "analysis_placeholder_rejected", **payload})
+                self._emit("analysis_placeholder_rejected", payload)
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        "This is only a plan to start exploring, not an analysis result. "
+                        "Do not finalize yet. Use the repository tools now to locate and read relevant code. "
+                        "Return final JSON only after you have evidence-backed claims, or one genuinely blocking clarification question."
+                    ),
+                })
+                phase = "locating_entry"
+                continue
             if draft.status == "needs_deeper_reasoning" and not pro_used and len(self.evidence) >= 2 and self._can_upgrade(session):
                 model = self.config.model.pro_model
                 pro_used = True
@@ -213,7 +234,7 @@ class AnalysisEngine:
                 phase = "deep_reasoning"
                 continue
             self.store.save_session(session)
-            self.store.save_analysis(draft, self.evidence)
+            self.store.save_analysis(draft, self.evidence, apply_corrections=False, new_round=True)
             self.store.create_revision(kind="model_analysis", user_message=user_message)
             session.current_revision_id = self.store.load_session().current_revision_id
             completed_payload = {"step": step, "max_steps": max_steps, "claims": len(draft.claims), "evidence": len(self.evidence)}
@@ -223,6 +244,17 @@ class AnalysisEngine:
         self.store.event({"type": "analysis_step_limit", "limit": max_steps})
         self._emit("analysis_failed", {"error": f"达到 {max_steps} 次 Agent 步骤上限"})
         raise RuntimeError(f"达到 {max_steps} 次 Agent 步骤上限；请缩小问题范围或补充分析要求后继续。")
+
+    @staticmethod
+    def _is_placeholder_draft(draft: AnalysisDraft) -> bool:
+        """Reject a narrated intention that contains no result or actionable clarification."""
+        return not (
+            draft.claims
+            or draft.journey_nodes
+            or draft.journey_edges
+            or draft.suggested_investigations
+            or draft.open_questions
+        )
 
     def _record_model_upgrade(self, session: Session, step: int, max_steps: int, reason_code: str, reason: str) -> None:
         session.model_events.append(f"Upgraded Flash to Pro: {reason}")
@@ -295,7 +327,13 @@ class AnalysisEngine:
     ) -> list[dict[str, Any]]:
         agenda = self.store.load_agenda(session)
         focus_is_locked = self.store.agenda_path.exists()
-        relevant_ids = self._relevant_evidence_ids(previous, context_evidence_ids or [])
+        confirmed_history = self.store.confirmed_claim_history()[-20:]
+        confirmed_evidence_ids = [
+            evidence_id
+            for item in confirmed_history
+            for evidence_id in item["evidence_ids"]
+        ]
+        relevant_ids = self._relevant_evidence_ids(previous, [*(context_evidence_ids or []), *confirmed_evidence_ids])
         evidence_by_id = {item.id: item for item in self.evidence}
         selected_evidence = [evidence_by_id[item_id] for item_id in relevant_ids if item_id in evidence_by_id][:4]
         revisions = self.store.list_revisions()
@@ -326,6 +364,7 @@ class AnalysisEngine:
                 else "No files were preselected. Locate relevant files from the natural-language question before drawing conclusions."
             ),
             "recent_human_corrections": [item.model_dump(mode="json") for item in recent_corrections],
+            "confirmed_history": confirmed_history,
             "working_memory": self._working_memory(previous, agenda.primary_focus),
             "evidence_catalog": [
                 {
@@ -354,23 +393,9 @@ class AnalysisEngine:
     def _working_memory(self, previous: Any, primary_focus: str) -> dict[str, Any] | None:
         if previous is None:
             return None
-        draft = previous.draft
         return {
             "primary_focus": primary_focus,
-            "summary": draft.summary[:2_000],
-            "claims": [
-                {
-                    "id": item.id,
-                    "statement": (item.human_text or item.statement)[:500],
-                    "review_status": item.review_status,
-                    "evidence_level": item.evidence_level,
-                    "evidence_ids": item.evidence_ids,
-                }
-                for item in draft.claims[:20]
-            ],
-            "journey_nodes": [item.model_dump(mode="json") for item in draft.journey_nodes[:30]],
-            "journey_edges": [item.model_dump(mode="json") for item in draft.journey_edges[:40]],
-            "open_questions": [item.model_dump(mode="json") for item in draft.open_questions[:8]],
+            "confirmed_claims": self.store.confirmed_claim_history()[-20:],
         }
 
     def _relevant_evidence_ids(self, previous: Any, anchored: list[str]) -> list[str]:

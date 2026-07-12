@@ -89,6 +89,9 @@ class AnalysisDraft(BaseModel):
 class Correction(BaseModel):
     claim_id: str
     verdict: Literal["confirm", "reject", "amend"]
+    revision_id: str | None = None
+    statement_snapshot: str | None = None
+    evidence_ids: list[str] = Field(default_factory=list)
     amended_statement: str | None = None
     note: str = ""
     actor: str = "local-user"
@@ -150,3 +153,62 @@ class AnalysisRevision(BaseModel):
     created_at: str = Field(default_factory=utc_now)
     user_message: str = ""
     analysis: StoredAnalysis
+
+
+class FinalCard(BaseModel):
+    id: str
+    title: str
+    statement: str
+    source_claim_ids: list[str]
+    evidence_ids: list[str] = Field(default_factory=list)
+    scope: str = ""
+    limitations: list[str] = Field(default_factory=list)
+    verification_tasks: list[str] = Field(default_factory=list)
+    status: Literal["active", "superseded"] = "active"
+    superseded_by: str | None = None
+    human_edited: bool = False
+
+
+class MergeSuggestion(BaseModel):
+    id: str
+    candidate_card_ids: list[str] = Field(default_factory=list)
+    source_claim_ids: list[str] = Field(default_factory=list)
+    relation: Literal["duplicate", "complementary", "conflict"] = "duplicate"
+    confidence: Literal["high", "medium", "low"] = "medium"
+    suggested_title: str = ""
+    suggested_statement: str = ""
+    rationale: str = ""
+    conflict_hint: str = ""
+    input_fingerprint: str = ""
+    status: Literal["proposed", "accepted", "rejected", "ignored", "invalidated"] = "proposed"
+    invalid_reason: str = ""
+    result_card_id: str | None = None
+
+
+class ClaimDisposition(BaseModel):
+    source_claim_id: str
+    action: Literal["mapped", "deferred", "disputed"] = "mapped"
+    card_id: str | None = None
+    reason: str = ""
+
+
+class SynthesisCoverage(BaseModel):
+    confirmed: int = 0
+    mapped: int = 0
+    deferred: int = 0
+    disputed: int = 0
+    missing: int = 0
+
+
+class Synthesis(BaseModel):
+    id: str = "draft"
+    status: Literal["draft", "stale", "sealed"] = "draft"
+    source_revision_ids: list[str] = Field(default_factory=list)
+    cards: list[FinalCard] = Field(default_factory=list)
+    suggestions: list[MergeSuggestion] = Field(default_factory=list)
+    dispositions: list[ClaimDisposition] = Field(default_factory=list)
+    coverage: SynthesisCoverage = Field(default_factory=SynthesisCoverage)
+    model_error: str = ""
+    created_at: str = Field(default_factory=utc_now)
+    updated_at: str = Field(default_factory=utc_now)
+    sealed_at: str | None = None

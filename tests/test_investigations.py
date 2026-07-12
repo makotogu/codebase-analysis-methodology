@@ -8,11 +8,13 @@ from code_loop.engine import AnalysisEngine
 from code_loop.models import (
     AnalysisDraft,
     Claim,
+    Correction,
     Evidence,
     EvidenceLevel,
     JourneyEdge,
     JourneyNode,
     OpenQuestion,
+    ReviewStatus,
     StoredAnalysis,
     SuggestedInvestigation,
 )
@@ -77,6 +79,40 @@ def test_revisions_are_immutable_and_working_save_does_not_create_one(tmp_path: 
     assert store.load_session().current_revision_id == second.id
 
 
+def test_review_is_scoped_to_its_round_when_claim_ids_repeat(tmp_path: Path) -> None:
+    config = Config()
+    store = SessionStore(tmp_path, config.repository, "round-review")
+    store.create("多轮分析", None)
+    first_draft = AnalysisDraft(
+        status="needs_user",
+        summary="第一轮",
+        claims=[Claim(id="claim_1", statement="第一轮结论", category="code_fact", evidence_level=EvidenceLevel.INFERRED, confidence="medium")],
+        next_action="review",
+    )
+    store.save_analysis(first_draft, [], apply_corrections=False)
+    first = store.create_revision(kind="model_analysis", user_message="首次")
+    store.append_correction(Correction(
+        claim_id="claim_1",
+        revision_id=first.id,
+        verdict="confirm",
+        statement_snapshot="第一轮结论",
+    ))
+    second_draft = AnalysisDraft(
+        status="needs_user",
+        summary="第二轮",
+        claims=[Claim(id="claim_1", statement="第二轮结论", category="code_fact", evidence_level=EvidenceLevel.INFERRED, confidence="medium")],
+        next_action="review",
+    )
+    store.save_analysis(second_draft, [], apply_corrections=False)
+    store.create_revision(kind="model_analysis", user_message="继续")
+
+    reviewed = [item for item in store.reviewed_revisions() if item.kind == "model_analysis"]
+
+    assert reviewed[0].analysis.draft.claims[0].review_status == ReviewStatus.CONFIRMED
+    assert reviewed[1].analysis.draft.claims[0].review_status == ReviewStatus.PROPOSED
+    assert [item["statement"] for item in store.confirmed_claim_history()] == ["第一轮结论"]
+
+
 def test_child_session_links_topic_and_revalidates_inherited_evidence(tmp_path: Path) -> None:
     source = tmp_path / "app.py"
     source.write_text("def entry():\n    return service()\n", encoding="utf-8")
@@ -120,7 +156,7 @@ def test_child_session_links_topic_and_revalidates_inherited_evidence(tmp_path: 
     assert parent.load_agenda().topics[0].status == "completed"
 
 
-def test_working_memory_is_bounded_and_excludes_full_previous_analysis(tmp_path: Path) -> None:
+def test_each_round_context_uses_only_bounded_confirmed_history(tmp_path: Path) -> None:
     config = Config()
     store = SessionStore(tmp_path, config.repository, "memory-session")
     session = store.create("宽问题", None)
@@ -165,6 +201,16 @@ def test_working_memory_is_bounded_and_excludes_full_previous_analysis(tmp_path:
         ),
         evidence=evidence,
     )
+    store.save_analysis(previous.draft, evidence, apply_corrections=False)
+    revision = store.create_revision(kind="model_analysis", user_message="首次分析")
+    for claim in claims:
+        store.append_correction(Correction(
+            claim_id=claim.id,
+            revision_id=revision.id,
+            verdict="confirm",
+            statement_snapshot=claim.statement,
+            evidence_ids=claim.evidence_ids,
+        ))
     engine = AnalysisEngine(config=config, tools=RepositoryTools(tmp_path, config.repository), store=store, client=NoopClient())
     engine.evidence = evidence
 
@@ -172,11 +218,11 @@ def test_working_memory_is_bounded_and_excludes_full_previous_analysis(tmp_path:
     context = json.loads(messages[1]["content"])
 
     assert "previous_analysis" not in context
-    assert len(context["working_memory"]["summary"]) == 2_000
-    assert len(context["working_memory"]["claims"]) == 20
-    assert len(context["working_memory"]["journey_nodes"]) == 30
-    assert len(context["working_memory"]["journey_edges"]) == 40
-    assert len(context["working_memory"]["open_questions"]) == 8
+    assert len(context["confirmed_history"]) == 20
+    assert len(context["working_memory"]["confirmed_claims"]) == 20
+    assert "summary" not in context["working_memory"]
+    assert "journey_nodes" not in context["working_memory"]
+    assert "journey_edges" not in context["working_memory"]
     assert len(context["evidence_catalog"]) == 50
     assert len(context["available_evidence"]) == 4
     assert context["available_evidence"][0]["id"] == "ev_25"

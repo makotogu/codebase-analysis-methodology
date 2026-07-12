@@ -5,8 +5,10 @@ from pathlib import Path
 import sys
 
 from .config import load_config
+from .llm import DeepSeekClient
 from .repository_tools import RepositoryTools
 from .storage import SessionStore
+from .synthesis import SynthesisEngine
 from .tui import CodeLoopApp, DashboardAction, DashboardApp, LauncherApp, SessionLaunch, WorkspaceSetupApp
 from .workspace import WorkspaceChoice, WorkspaceError, resolve_workspace
 
@@ -29,7 +31,7 @@ def cmd_start(args: argparse.Namespace) -> int:
     session_id = SessionStore.new_id(args.question)
     store = SessionStore(repository, config.repository, session_id)
     session = store.create(args.question, tools.git_head())
-    _run_workbench_chain(repository, config, store, session)
+    _run_workbench_chain(repository, config, store, session, auto_start=True)
     return 0
 
 
@@ -55,12 +57,14 @@ def cmd_launch(target: Path | None = None) -> int:
             if not isinstance(launch, SessionLaunch):
                 continue
             session_id = launch.session_id
+            auto_start = launch.auto_start
         elif action.kind == "resume" and action.session_id:
             session_id = action.session_id
+            auto_start = False
         else:
             continue
         store = SessionStore(repository, config.repository, session_id)
-        result = _run_workbench_chain(repository, config, store, store.load_session())
+        result = _run_workbench_chain(repository, config, store, store.load_session(), auto_start=auto_start)
         if result is not None:
             # A child chain ends back at the workspace dashboard.
             continue
@@ -76,15 +80,16 @@ def cmd_resume(args: argparse.Namespace) -> int:
     return 0
 
 
-def _run_workbench_chain(repository: Path, config, store: SessionStore, session):
+def _run_workbench_chain(repository: Path, config, store: SessionStore, session, *, auto_start: bool = False):
     """Follow child-session handoffs without nesting Textual applications."""
 
     while True:
-        result = CodeLoopApp(repository, config, store, session).run()
+        result = CodeLoopApp(repository, config, store, session, auto_start=auto_start).run()
         if not isinstance(result, SessionLaunch):
             return result
         store = SessionStore(repository, config.repository, result.session_id)
         session = store.load_session()
+        auto_start = result.auto_start
 
 
 def cmd_list(args: argparse.Namespace) -> int:
@@ -111,6 +116,32 @@ def cmd_render(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_synthesize(args: argparse.Namespace) -> int:
+    config = load_config(args.repository)
+    store = SessionStore(args.repository, config.repository, args.session_id)
+    if not store.session_path.exists():
+        raise SystemExit(f"Session not found: {store.session_path}")
+    store.ensure_model_revision()
+    proposed = [item for item in store.claim_ledger() if item["review_status"] == "proposed"]
+    if proposed:
+        raise SystemExit(f"仍有 {len(proposed)} 条跨轮 Claim 待裁决；请先在 Workbench 中处理。")
+    synthesis = store.build_synthesis()
+    if args.assess:
+        if args.no_model:
+            raise SystemExit("--assess 与 --no-model 不能同时使用")
+        synthesis = SynthesisEngine(config, store, DeepSeekClient(config.model)).assess_cards(
+            store.load_session(), synthesis, args.assess
+        )
+    print(store.synthesis_path)
+    print(
+        f"coverage confirmed={synthesis.coverage.confirmed} mapped={synthesis.coverage.mapped} "
+        f"deferred={synthesis.coverage.deferred} disputed={synthesis.coverage.disputed} "
+        f"missing={synthesis.coverage.missing} suggestions="
+        f"{sum(item.status == 'proposed' for item in synthesis.suggestions)}"
+    )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="code-loop", description="Evidence-driven, human-correctable code journey analysis")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -129,12 +160,18 @@ def build_parser() -> argparse.ArgumentParser:
     render.add_argument("repository", type=_repository)
     render.add_argument("session_id")
     render.set_defaults(handler=cmd_render)
+    synthesize = subparsers.add_parser("synthesize", help="Create a manual card-synthesis draft")
+    synthesize.add_argument("repository", type=_repository)
+    synthesize.add_argument("session_id")
+    synthesize.add_argument("--assess", nargs="+", metavar="CARD_ID", help="Ask Flash to assess 2–8 active cards")
+    synthesize.add_argument("--no-model", action="store_true", help="Compatibility flag; deterministic cards are now the default")
+    synthesize.set_defaults(handler=cmd_synthesize)
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     arguments = list(sys.argv[1:] if argv is None else argv)
-    commands = {"start", "resume", "list", "render", "-h", "--help"}
+    commands = {"start", "resume", "list", "render", "synthesize", "-h", "--help"}
     if not arguments:
         return cmd_launch()
     if arguments[0] not in commands:
