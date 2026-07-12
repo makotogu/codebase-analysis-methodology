@@ -1,12 +1,19 @@
 # =====================================================================
 # repos.yaml — 工作区清单（09-多仓库联合分析 第一节）
 # ---------------------------------------------------------------------
-# 多仓库分析的第一步：这张表是完备的分母，进度、覆盖率、遗漏检查
-# 都以它为准。仓库 name 是所有 stable ID 的前缀（web-portal::src/...）。
+# 多仓库分析的第一步：这张表是人工声明的分母，不天然代表组织内全部仓库。
+# 进度、覆盖率和遗漏检查只在声明范围内计算。
 # kind 取值：frontend | backend | bff | lib | infra
 # 性质：人工段（仓库增减由人维护）；analyzed 列可由工具回写。
 # =====================================================================
 
+artifact_metadata: artifact-metadata.yaml
+denominator:
+  declared_by: architecture-team
+  declared_at: "2026-07-10"
+  review_date: "2026-08-10"
+  known_exclusions: ["archived repositories"]
+repositories:
 - name: web-portal
   path: ../web-portal            # 相对本工作区目录的路径
   kind: frontend
@@ -53,8 +60,8 @@
 
 - name: common-lib
   path: ../common-lib
-  kind: lib                       # 共享库：不参与 API 边，但参与 co-change 与共享表分析
+  kind: lib                       # 共享库：不参与 API 边，但参与 change-coupling signal 与共享表分析
   language: java
   service: ""
   owner: 架构组
-  notes: 被所有后端仓库依赖，热点变更会放大到全工作区
+  notes: 被声明范围内所有后端仓库依赖，热点变更可能放大到工作区

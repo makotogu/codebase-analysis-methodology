@@ -1,0 +1,29 @@
+[model]
+base_url = "https://api.deepseek.com"
+flash_model = "deepseek-v4-flash"
+pro_model = "deepseek-v4-pro"
+max_session_cost_usd = 0.25
+request_timeout_seconds = 90
+max_retries = 1
+max_agent_steps = 20
+flash_max_steps = 8
+stagnation_threshold = 3
+
+# Update these when DeepSeek changes published prices. Values are USD / 1M tokens.
+[model.prices.flash]
+input_cache_hit = 0.0028
+input_cache_miss = 0.14
+output = 0.28
+
+[model.prices.pro]
+input_cache_hit = 0.003625
+input_cache_miss = 0.435
+output = 0.87
+
+[repository]
+output_dir = "notes/code-loop"
+max_file_bytes = 200000
+max_read_lines = 800
+max_evidence_context_chars = 16000
+max_search_results = 60
+exclude = [".git", ".env", ".env.", "node_modules", "vendor", "dist", "build", "target", "*.pem", "*.key"]

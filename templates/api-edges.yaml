@@ -10,32 +10,49 @@
 # 性质：机器段为主（可重跑覆盖），human_note 为人工段。
 # =====================================================================
 
-- from_repo: web-portal
+artifact_metadata: artifact-metadata.yaml
+edges:
+- id: web-portal::order-create
+  aliases: []
+  previous_id: ""
+  lineage: "initial"
+  from_repo: web-portal
   from_evidence: src/api/order.ts:12          # axios.post('/api/v1/orders', ...)
   method: POST
   path_pattern: /api/v1/orders
   to_repo: order-service
   to_entry: http-order-create                  # 对方 entries.yaml 的 id（stable ID join）
   match: exact
-  code_evidence_level: verified
+  evidence_type: source-verified
+  verification_task: "capture a request in the declared environment"
   human_note: ""
 
-- from_repo: admin-web
+- id: admin-web::refund-detail
+  aliases: []
+  previous_id: ""
+  lineage: "initial"
+  from_repo: admin-web
   from_evidence: src/services/refund.ts:33     # fetch(`/admin-api/refunds/${id}`)
   method: GET
   path_pattern: /admin-api/refunds/{*}
   to_repo: order-service
   to_entry: http-refund-detail                 # /refunds/{refundId}，剥离 /admin-api 前缀后 fuzzy 对齐
   match: fuzzy
-  code_evidence_level: inferred                # fuzzy 匹配一律 inferred，需抓包或日志验证
+  evidence_type: inferred                      # fuzzy 匹配一律 inferred，需抓包或日志验证
+  verification_task: "confirm normalized route with gateway logs"
   human_note: ""
 
-- from_repo: web-portal
+- id: web-portal::legacy-points
+  aliases: []
+  previous_id: ""
+  lineage: "initial"
+  from_repo: web-portal
   from_evidence: src/api/legacy.ts:8           # axios.get('/api/v0/points/summary')
   method: GET
   path_pattern: /api/v0/points/summary
   to_repo: ""
   to_entry: ""
   match: unmatched                             # 所有后端路由表均无此路径
-  code_evidence_level: unverified
+  evidence_type: unverified
+  verification_task: "check build references, traffic window, owner and retirement record"
   human_note: "据王五：积分系统 2024 年已下线，前端死代码候选（2026-07）"

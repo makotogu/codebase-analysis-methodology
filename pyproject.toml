@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "code-loop"
+version = "0.1.0"
+description = "Evidence-driven, human-correctable code journey analysis TUI"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+  "openai>=1.40.0",
+  "pydantic>=2.8.0",
+  "textual>=0.80.0",
+  "pygments>=2.18.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "PyYAML>=6.0"]
+
+[project.scripts]
+code-loop = "code_loop.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/code_loop"]
+
+[tool.hatch.build]
+exclude = ["**/notes/code-loop/**"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

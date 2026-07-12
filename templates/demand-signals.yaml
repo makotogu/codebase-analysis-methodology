@@ -1,0 +1,19 @@
+# demand-signals.yaml — Phase 3/4 需求侧事实与假设
+schema_version: "1.0"
+artifact_metadata: artifact-metadata.yaml
+signals:
+  - id: demand-order-promo-001
+    type: historical-demand       # historical-demand | roadmap | regulatory | capability-ownership
+    statement: "近六个月促销需求反复修改订单定价链路"
+    source_reference: "issue-system://filter/replace-me"
+    applicable_scope: [order, promotion]
+    time_window:
+      start: "2026-01-01"
+      end: "2026-06-30"
+    count: 12
+    owner: "product-owner"
+    status: business-confirmed    # pending | business-confirmed | disputed | stale
+    confirmed_by: ["product-owner", "order-domain-owner"]
+    confirmed_at: "2026-07-10"
+    review_date: "2026-10-10"
+    uncertainty: "tickets without the promotion label may be omitted"
